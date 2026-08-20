@@ -43,7 +43,7 @@ Hosted composition uses:
 - `BridgeSessionContext` derived fresh from the verified MCP access token
 - `DatabaseConnectionStore` for tenant-scoped connection metadata
 - `EncryptedDatabaseCredentialStore` for tenant-bound encrypted app passwords
-- `migrations/0001_hosted_storage.sql` for the initial PostgreSQL schema
+- packaged `nextcloud_chatgpt_bridge/migrations/0001_hosted_storage.sql` for the initial PostgreSQL schema (`nextcloud-chatgpt-schema` prints it)
 
 The library foundation does not replace deployment controls. Public hosting still requires TLS/proxy hardening, egress enforcement, rate limits, monitoring and privacy/retention operations.
 

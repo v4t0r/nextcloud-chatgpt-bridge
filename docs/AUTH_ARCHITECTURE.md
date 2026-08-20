@@ -93,7 +93,7 @@ Hosted composition must use `build_hosted_connection_service`, which constructs 
 
 ## Secret storage
 
-`InMemoryCredentialStore` and `InMemoryConnectionStore` exist only for tests/development. Hosted storage uses SQLAlchemy/PostgreSQL connection metadata plus `EncryptedDatabaseCredentialStore` with AES-256-GCM and bounded key rotation. The schema is defined in `migrations/0001_hosted_storage.sql`, verified before hosted startup, and accompanied by cleanup for expired flows and old unreferenced encrypted secrets.
+`InMemoryCredentialStore` and `InMemoryConnectionStore` exist only for tests/development. Hosted storage uses SQLAlchemy/PostgreSQL connection metadata plus `EncryptedDatabaseCredentialStore` with AES-256-GCM and bounded key rotation. The schema is packaged at `nextcloud_chatgpt_bridge/migrations/0001_hosted_storage.sql`, can be printed with `nextcloud-chatgpt-schema`, is verified before hosted startup, and is accompanied by cleanup for expired flows and old unreferenced encrypted secrets.
 
 Database URLs and encryption keys are deployment secrets. Plaintext app passwords must never be written to logs, prompts, GitHub, analytics or metadata tables. A managed KMS/HSM envelope-encryption boundary remains recommended for public production deployment.
 

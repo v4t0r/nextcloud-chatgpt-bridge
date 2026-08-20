@@ -6,6 +6,7 @@ import json
 from dataclasses import asdict, dataclass
 from uuid import uuid4
 
+from nextcloud_chatgpt_bridge import __version__
 from nextcloud_chatgpt_bridge.capabilities import build_capability_report
 from nextcloud_chatgpt_bridge.config import Settings
 from nextcloud_chatgpt_bridge.providers.native_mcp import (
@@ -120,6 +121,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run sanitized connectivity checks against the configured Nextcloud instance."
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
         "--write-test",
         action="store_true",

@@ -2,7 +2,14 @@
 
 ## Current status
 
-This project is under active development and not yet intended for production use. The hosted multi-user identity, connection and encrypted-storage foundations are implemented; infrastructure and operational release gates remain.
+`v0.1.x` is a developer/self-hosted release and is not intended to operate as an internet-facing public multi-tenant service. The hosted multi-user identity, connection and encrypted-storage foundations are implemented; infrastructure and operational release gates remain.
+
+## Supported versions
+
+| Version | Security updates |
+|---|---|
+| `0.1.x` | Supported |
+| `< 0.1.0` | Unsupported development snapshots |
 
 ## Security principles
 
@@ -90,4 +97,4 @@ The local Streamable HTTP mode binds to loopback and remains a development trans
 
 ## Reporting vulnerabilities
 
-Until the repository is public, report findings directly to the repository owner. A public disclosure process will be added before the first public release.
+Report findings privately to the repository owner. Do not include live credentials, private file contents or exploit data in a public issue. A dedicated private vulnerability-reporting channel will be documented before the hosted service is submitted publicly.
