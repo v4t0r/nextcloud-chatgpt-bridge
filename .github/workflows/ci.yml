@@ -27,7 +27,7 @@ jobs:
           cache: pip
 
       - name: Install project
-        run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+        run: python -m pip install --upgrade pip && pip install -e ".[dev,hosted]"
 
       - name: Ruff
         run: ruff check .
@@ -65,4 +65,75 @@ jobs:
           wheelcheck/bin/pip install dist/*.whl
           wheelcheck/bin/nextcloud-chatgpt-bridge --version
           wheelcheck/bin/nextcloud-chatgpt-diagnose --version
+          wheelcheck/bin/nextcloud-chatgpt-hosted --version
+          wheelcheck/bin/nextcloud-chatgpt-egress --version
+          wheelcheck/bin/nextcloud-chatgpt-maintenance --version
+          wheelcheck/bin/nextcloud-chatgpt-preflight --version
           wheelcheck/bin/nextcloud-chatgpt-schema | grep "CREATE TABLE bridge_schema_migrations"
+
+  deployment:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate entrypoint syntax
+        run: sh -n deploy/docker-entrypoint.sh
+
+      - name: Create CI-only deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p deploy/secrets
+          printf '%s\n' 'ci-database-password' > deploy/secrets/database-password.txt
+          python - <<'PY' > deploy/secrets/credential-keyring.json
+          import base64
+          import json
+          import secrets
+
+          print(json.dumps({"primary": base64.b64encode(secrets.token_bytes(32)).decode()}))
+          PY
+          cat > deploy/.env.ci <<'EOF'
+          PUBLIC_DOMAIN=bridge.example.test
+          BRIDGE_AUTH_ISSUER_URL=https://auth.example.test/
+          BRIDGE_AUTH_JWKS_URL=https://auth.example.test/.well-known/jwks.json
+          BRIDGE_AUTH_DISCOVERY_URL=https://auth.example.test/.well-known/openid-configuration
+          BRIDGE_AUTH_AUDIENCE=https://bridge.example.test/mcp
+          BRIDGE_AUTH_REQUIRED_SCOPES=nextcloud:use
+          BRIDGE_AUTH_ALLOWED_ALGORITHMS=RS256
+          BRIDGE_AUTH_CLIENT_MODE=cimd
+          BRIDGE_AUTH_REQUIRE_USERINFO=false
+          BRIDGE_WEBSITE_URL=https://www.example.test/
+          BRIDGE_SUPPORT_URL=https://www.example.test/support
+          BRIDGE_PRIVACY_URL=https://www.example.test/privacy
+          BRIDGE_TERMS_URL=https://www.example.test/terms
+          BRIDGE_ALLOWED_ORIGINS=
+          BRIDGE_LOG_LEVEL=warning
+          BRIDGE_SECRET_ACTIVE_KEY_ID=primary
+          BRIDGE_DB_PASSWORD_FILE=./secrets/database-password.txt
+          BRIDGE_KEYRING_FILE=./secrets/credential-keyring.json
+          OPENAI_APPS_CHALLENGE_TOKEN=
+          EOF
+
+      - name: Validate production composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose --env-file deploy/.env.ci -f deploy/compose.production.yml config
+          docker run --rm \
+            -e PUBLIC_DOMAIN=bridge.example.test \
+            -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+      - name: Build and smoke-test deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'docker compose --env-file deploy/.env.ci -f deploy/compose.production.yml down -v' EXIT
+          docker compose --env-file deploy/.env.ci -f deploy/compose.production.yml build \
+            bridge egress migrate maintenance
+          docker compose --env-file deploy/.env.ci -f deploy/compose.production.yml up \
+            -d --wait bridge maintenance
+          docker compose --env-file deploy/.env.ci -f deploy/compose.production.yml exec -T bridge \
+            python -c "import httpx; r=httpx.get('http://127.0.0.1:8000/health/ready'); r.raise_for_status(); assert r.json()['status'] == 'ready'"

@@ -1,0 +1,193 @@
+name: nextcloud-chatgpt-bridge
+
+services:
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: bridge
+      POSTGRES_PASSWORD_FILE: /run/secrets/bridge_db_password
+      POSTGRES_USER: bridge
+    secrets:
+      - bridge_db_password
+    volumes:
+      - bridge_database:/var/lib/postgresql/data
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bridge -d bridge"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  egress:
+    build:
+      context: ..
+    command: ["nextcloud-chatgpt-egress", "--host", "0.0.0.0", "--port", "8080"]
+    expose:
+      - "8080"
+    networks:
+      - private
+      - edge
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  migrate:
+    build:
+      context: ..
+    entrypoint: ["bridge-entrypoint"]
+    command: ["nextcloud-chatgpt-schema", "--apply"]
+    environment:
+      BRIDGE_SECRET_ACTIVE_KEY_ID: ${BRIDGE_SECRET_ACTIVE_KEY_ID:-primary}
+    secrets:
+      - bridge_db_password
+      - bridge_secret_keyring
+    networks:
+      - private
+    depends_on:
+      database:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  bridge:
+    build:
+      context: ..
+    entrypoint: ["bridge-entrypoint"]
+    command: ["nextcloud-chatgpt-hosted"]
+    environment:
+      BRIDGE_AUTH_ALLOWED_ALGORITHMS: ${BRIDGE_AUTH_ALLOWED_ALGORITHMS:-RS256}
+      BRIDGE_AUTH_AUDIENCE: ${BRIDGE_AUTH_AUDIENCE}
+      BRIDGE_AUTH_ISSUER_URL: ${BRIDGE_AUTH_ISSUER_URL}
+      BRIDGE_AUTH_JWKS_URL: ${BRIDGE_AUTH_JWKS_URL}
+      BRIDGE_AUTH_REQUIRED_SCOPES: ${BRIDGE_AUTH_REQUIRED_SCOPES:-nextcloud:use}
+      BRIDGE_ALLOWED_ORIGINS: ${BRIDGE_ALLOWED_ORIGINS:-}
+      BRIDGE_HOST: 0.0.0.0
+      BRIDGE_LOG_LEVEL: ${BRIDGE_LOG_LEVEL:-info}
+      BRIDGE_MAX_REQUEST_BODY_BYTES: ${BRIDGE_MAX_REQUEST_BODY_BYTES:-4194304}
+      BRIDGE_RATE_LIMIT_IP_REQUESTS_PER_MINUTE: ${BRIDGE_RATE_LIMIT_IP_REQUESTS_PER_MINUTE:-1200}
+      BRIDGE_RATE_LIMIT_MAX_KEYS: ${BRIDGE_RATE_LIMIT_MAX_KEYS:-20000}
+      BRIDGE_RATE_LIMIT_REQUESTS_PER_MINUTE: ${BRIDGE_RATE_LIMIT_REQUESTS_PER_MINUTE:-180}
+      BRIDGE_RESOURCE_SERVER_URL: https://${PUBLIC_DOMAIN}/mcp
+      BRIDGE_SECRET_ACTIVE_KEY_ID: ${BRIDGE_SECRET_ACTIVE_KEY_ID:-primary}
+      BRIDGE_SUPPORT_URL: ${BRIDGE_SUPPORT_URL}
+      BRIDGE_TRUSTED_HOSTS: ${PUBLIC_DOMAIN},127.0.0.1
+      BRIDGE_WEBSITE_URL: ${BRIDGE_WEBSITE_URL}
+      HTTPS_PROXY: http://egress:8080
+      NO_PROXY: 127.0.0.1,localhost,database,egress
+      OPENAI_APPS_CHALLENGE_TOKEN: ${OPENAI_APPS_CHALLENGE_TOKEN:-}
+      PORT: 8000
+    secrets:
+      - bridge_db_password
+      - bridge_secret_keyring
+    networks:
+      - private
+    depends_on:
+      egress:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import httpx; response=httpx.get('http://127.0.0.1:8000/health/ready'); response.raise_for_status()",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  maintenance:
+    build:
+      context: ..
+    entrypoint: ["bridge-entrypoint"]
+    command:
+      [
+        "nextcloud-chatgpt-maintenance",
+        "--interval-seconds",
+        "300",
+        "--orphan-grace-seconds",
+        "3600",
+      ]
+    environment:
+      BRIDGE_SECRET_ACTIVE_KEY_ID: ${BRIDGE_SECRET_ACTIVE_KEY_ID:-primary}
+    secrets:
+      - bridge_db_password
+      - bridge_secret_keyring
+    networks:
+      - private
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - private
+      - edge
+    depends_on:
+      bridge:
+        condition: service_healthy
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  private:
+    internal: true
+  edge:
+
+volumes:
+  bridge_database:
+  caddy_data:
+  caddy_config:
+
+secrets:
+  bridge_db_password:
+    file: ${BRIDGE_DB_PASSWORD_FILE}
+  bridge_secret_keyring:
+    file: ${BRIDGE_KEYRING_FILE}

@@ -45,7 +45,12 @@ Hosted composition uses:
 - `EncryptedDatabaseCredentialStore` for tenant-bound encrypted app passwords
 - packaged versioned PostgreSQL migrations for connection and household metadata (`nextcloud-chatgpt-schema` prints them in order)
 
-The library foundation does not replace deployment controls. Public hosting still requires TLS/proxy hardening, egress enforcement, rate limits, monitoring and privacy/retention operations.
+`create_public_app` composes that server with trusted-host checks, transport DNS-rebinding
+protection, exact optional origins, request limits, bounded token/IP rate limits, security headers,
+health routes, product metadata, and an opt-in OpenAI domain-challenge route. The reference Docker
+composition adds TLS, database migration, maintenance, and a DNS-rebinding-resistant egress proxy.
+Public hosting still requires real OAuth, domains, monitoring, incident response, and
+privacy/retention operations from the deployer.
 
 ## Current tools
 
@@ -142,9 +147,13 @@ The base64 tools are intended as a generic interoperability fallback for small f
 - complete IBAN values are replaced by their last four characters
 - duplicate report hashes cannot overwrite an existing review
 
-## Hosted-service warning
+## Hosted-service boundary
 
-Hosted URL preflight and tenant isolation are implemented, but application validation cannot prevent DNS rebinding by itself. Infrastructure-level SSRF/egress enforcement remains a release blocker, not an optional hardening task.
+Hosted URL preflight and tenant isolation are duplicated by the reference egress proxy at connection
+time. A public deployment must preserve that network separation; bypassing the proxy or giving the
+bridge container direct external connectivity invalidates the reference security model. The source
+release alone does not activate a public service or complete OAuth, privacy, retention, monitoring,
+reviewer, or OpenAI publisher operations.
 
 ## Testing
 

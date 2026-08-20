@@ -5,6 +5,40 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-08-20
+
+### Added
+
+- Production-facing OAuth-protected universal MCP application with public health, product, and
+  opt-in OpenAI domain-challenge routes.
+- Trusted-host, transport DNS-rebinding, optional origin, request-body, rate-limit, and response
+  security controls for the hosted boundary.
+- CONNECT-only HTTPS egress proxy that resolves, validates, and IP-pins public destinations.
+- Network-isolated Docker Compose reference with PostgreSQL, migration, bridge, maintenance,
+  egress, and Caddy services.
+- Explicit pending-migration application and recurring hosted-storage cleanup commands.
+- Release preflight for health, protected-resource metadata, OAuth discovery, PKCE, client mode,
+  public legal URLs, and domain challenge.
+- Codex plugin package, personal marketplace entry, original project artwork, listing copy,
+  reviewer runbook, positive/negative cases, and exact tool-annotation inventory.
+- Public landing-site source with product, support, security, privacy, and terms pages.
+
+### Changed
+
+- Classified the project as a beta public-app release candidate.
+- Preserved exact OAuth URLs instead of normalizing deployment-controlled issuer/resource values.
+- Updated release, architecture, security, privacy, and deployment documentation for public review.
+
+### Security
+
+- The bridge container has no direct external route in the reference composition; Nextcloud HTTPS
+  traffic must cross the destination-validating egress proxy.
+- Hosted MCP requests derive a new verified tenant context and apply bounded token/IP rate limits.
+- Production tool contracts require explicit read-only, destructive, idempotent, and open-world
+  annotations while retaining deterministic server-side enforcement.
+- Public release remains gated on real OAuth, domains, operator policies, reviewer fixtures, and
+  successful OpenAI review; this source tag does not activate a hosted service.
+
 ## [0.2.0] - 2026-08-20
 
 ### Added
@@ -53,5 +87,6 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Public hosted deployment remains blocked until infrastructure egress controls, rate limits,
   privacy controls and production operations are supplied by the deployer.
 
+[0.3.0]: https://github.com/v4t0r/nextcloud-chatgpt-bridge/releases/tag/v0.3.0
 [0.2.0]: https://github.com/v4t0r/nextcloud-chatgpt-bridge/releases/tag/v0.2.0
 [0.1.0]: https://github.com/v4t0r/nextcloud-chatgpt-bridge/releases/tag/v0.1.0

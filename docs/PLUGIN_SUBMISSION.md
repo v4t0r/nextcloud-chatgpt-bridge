@@ -11,11 +11,13 @@ Passing this checklist does not itself publish the plugin or authorize public ho
 - product name: Nextcloud for ChatGPT & Codex
 - authentication: external OAuth/OIDC at the bridge boundary, Nextcloud Login Flow v2 for account connection
 - data plane: request-scoped tenant context -> owned connection -> bounded provider
+- product website: https://nextcloud-for-chatgpt.v4t0r.chatgpt.site
 
-OpenAI currently requires a public production URL, accurate tool metadata, public website/support/
-privacy/terms URLs, domain verification and five positive plus three negative reviewer test cases.
-Those deployment and publisher assets are tracked as release gates, not represented as complete by
-the source release.
+OpenAI currently requires a public production URL, accurate tool metadata, public website, support,
+privacy and terms URLs, domain verification, reviewer access, and positive plus negative test cases.
+The canonical form copy, cases, annotation inventory, reviewer runbook, release notes, and final
+checklist live in [`submission/`](../submission/). Deployment and publisher actions are release
+gates and are never represented as complete by the source release alone.
 
 ## Tool metadata gate
 
@@ -42,6 +44,12 @@ configured bridge root should contain only synthetic data:
 - one private user/group share under the root
 - no real names, addresses, payment data or credentials
 
+## Canonical reviewer cases
+
+The authoritative, expanded case set is
+[`submission/TEST_CASES.md`](../submission/TEST_CASES.md). The compact minimum below remains a
+cross-check for the architecture document.
+
 ## Positive test cases
 
 | # | User prompt | Expected behavior | Expected result |
@@ -62,11 +70,12 @@ configured bridge root should contain only synthetic data:
 
 ## Remaining public gates
 
-- production domain, TLS and universal MCP endpoint
+- deploy the reference network boundary without bypassing its egress and rate controls
+- production domain, TLS, and universal MCP endpoint
+- external OAuth/OIDC plus exact production discovery/resource metadata
+- public website, support, privacy, and terms URLs completed with actual providers
 - publisher identity and domain challenge verification
-- external OAuth/OIDC and reviewer-ready demo credentials
-- DNS-rebinding-safe egress controls and operational rate limits
-- public privacy policy, terms, support and product website
-- documented retention/deletion behavior for profile and invoice-review data
-- final metadata scan and end-to-end test from both ChatGPT and Codex
+- reviewer bridge identity and disposable synthetic Nextcloud fixture
+- documented production retention, deletion, backup, restore, monitoring, and incident response
+- final preflight and end-to-end test from ChatGPT and Codex
 - OpenAI review approval and deliberate publication by the owner

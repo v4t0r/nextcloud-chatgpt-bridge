@@ -13,12 +13,15 @@
 
 The real integration runs used a dedicated Nextcloud user, app password and a restricted shared root. The diagnostic write smoke test successfully completed folder creation, upload, bounded download, byte verification, move/rename, metadata lookup and cleanup. The `v0.1.0` release run executed from a clean installation of its built wheel; direct diagnostics intentionally bypass OAuth/Login Flow and do not replace the hosted acceptance test.
 
-The `v0.2.0` source-candidate run discovered 40 user-visible apps and 33 Unified Search providers,
-successfully queried an empty root-bound share inventory, and completed the isolated synthetic
-household flow. That flow created inbox/archive/review folders, reviewed one invoice, saved a
-redacted report, rejected duplicate overwrite and removed all temporary data. Counts are instance-
-specific and are recorded only to prove the endpoints returned bounded structured results. The
-same complete test then passed from a clean installation of the built `v0.2.0` wheel.
+The `v0.2.0` source-candidate run returned bounded user-visible app and Unified Search provider
+inventories, successfully queried an empty root-bound share inventory, and completed the isolated
+synthetic household flow. That flow created inbox/archive/review folders, reviewed one invoice,
+saved a redacted report, rejected duplicate overwrite, and removed all temporary data. The same
+complete flow then passed from a clean installation of the built `v0.2.0` wheel.
+
+`v0.3.0` retains that validated WebDAV/OCS/provider core and adds the public transport and deployment
+boundary. It must still pass the separate hosted OAuth, tenant-isolation, egress, and reviewer
+acceptance runbook on the exact production environment before public access opens.
 
 `native_mcp_available = false` is not a bridge failure. It means the Nextcloud Context Agent MCP endpoint was not available to that account/instance, so the standards-based WebDAV/OCS path remains the active provider route.
 
