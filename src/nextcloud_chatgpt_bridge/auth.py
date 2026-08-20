@@ -21,6 +21,7 @@ class HostedAuthConfig(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        url_preserve_empty_path=True,
     )
 
     issuer_url: AnyHttpUrl = Field(alias="BRIDGE_AUTH_ISSUER_URL")

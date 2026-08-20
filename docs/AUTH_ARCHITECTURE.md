@@ -87,13 +87,28 @@ Application preflight policy rejects:
 - ports other than explicitly allowed hosted ports
 - DNS names if any resolved address is non-global
 
-This preflight is **not sufficient by itself** because DNS can change between validation and socket connection. Public production deployment MUST duplicate the policy at the network/egress layer (proxy/firewall/resolver policy) to prevent DNS rebinding. Local/self-hosted mode intentionally permits private-LAN Nextcloud servers.
+Application preflight is not sufficient by itself because DNS can change between validation and
+socket connection. The production reference therefore routes every external HTTPS connection
+through a CONNECT-only egress proxy. The proxy resolves and validates the destination, rejects the
+entire target when any resolved address is non-global, and connects to the validated IP without a
+second DNS lookup. The bridge container is attached only to an internal network and has no direct
+external route. Local/self-hosted mode intentionally permits private-LAN Nextcloud servers.
 
-Hosted composition must use `build_hosted_connection_service`, which constructs `LoginFlowClient` with `PublicHostedPolicy`. Direct `ConnectionService` construction remains available for local development and tests where private-LAN Nextcloud hosts are legitimate.
+Hosted composition must use `build_hosted_connection_service`, which constructs `LoginFlowClient`
+with `PublicHostedPolicy`. The reference deployment additionally sets the egress proxy through
+`HTTPS_PROXY` and permits only PostgreSQL and proxy traffic on the internal network. Direct
+`ConnectionService` construction remains available for local development and tests where
+private-LAN Nextcloud hosts are legitimate.
 
 ## Secret storage
 
-`InMemoryCredentialStore`, `InMemoryConnectionStore` and `InMemoryHouseholdProfileStore` exist only for tests/development. Hosted storage uses SQLAlchemy/PostgreSQL connection metadata plus `EncryptedDatabaseCredentialStore` with AES-256-GCM and bounded key rotation. Migrations are packaged under `nextcloud_chatgpt_bridge/migrations`; `nextcloud-chatgpt-schema` prints all migrations in order, `--version 2` prints only the household migration, and hosted startup requires schema version 2. Cleanup covers expired flows and old unreferenced encrypted secrets.
+`InMemoryCredentialStore`, `InMemoryConnectionStore` and `InMemoryHouseholdProfileStore` exist only
+for tests/development. Hosted storage uses SQLAlchemy/PostgreSQL connection metadata plus
+`EncryptedDatabaseCredentialStore` with AES-256-GCM and bounded key rotation. Migrations are
+packaged under `nextcloud_chatgpt_bridge/migrations`; `nextcloud-chatgpt-schema --list` shows
+available versions, `--apply` applies only pending versions through an explicit operator action,
+and hosted startup requires the exact expected schema version. The maintenance process removes
+expired flows and old unreferenced encrypted secrets.
 
 The household table stores display name, root-relative inbox/archive/report paths and default
 currency. It stores no Nextcloud credentials, invoice bytes, extracted text, review contents or
@@ -103,13 +118,20 @@ bounded Nextcloud workspace.
 
 Database URLs and encryption keys are deployment secrets. Plaintext app passwords must never be written to logs, prompts, GitHub, analytics or metadata tables. A managed KMS/HSM envelope-encryption boundary remains recommended for public production deployment.
 
-## Remaining release blockers
+## Production composition
 
-- infrastructure egress enforcement for SSRF/DNS-rebinding protection
-- external OAuth/OIDC provider deployment and end-to-end ChatGPT/Codex OAuth test
-- rate limiting and abuse controls
-- audit logging that excludes secrets and file contents
-- privacy/retention policy implementation
-- managed KMS/HSM integration or a documented equivalent deployment key-management policy
-- public domain, legal/support URLs and OpenAI domain verification
-- reviewer-ready universal MCP endpoint and positive/negative submission test account
+The reference composition includes PostgreSQL, one stateless bridge worker, an isolated egress
+proxy, a maintenance process, migration job, and Caddy TLS termination. It adds bounded in-process
+rate limiting, exact trusted hosts, optional exact origins, security headers, body limits, liveness,
+readiness, and an OpenAI domain-challenge endpoint that remains disabled until a challenge token is
+explicitly configured.
+
+See `deploy/compose.production.yml` and `docs/PRODUCTION_DEPLOYMENT.md`.
+
+## Remaining external release gates
+
+- external OAuth/OIDC provider deployment and end-to-end ChatGPT/Codex OAuth acceptance
+- operator-approved log, retention, deletion, backup, restore, and key-management procedures
+- public MCP domain, legal/support URLs, and OpenAI domain verification
+- reviewer-ready bridge identity and disposable synthetic Nextcloud fixture
+- verified OpenAI publisher identity and final directory review

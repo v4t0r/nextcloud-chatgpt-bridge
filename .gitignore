@@ -149,6 +149,7 @@ activemq-data/
 
 # Environments
 .env
+.env.production
 .envrc
 .venv
 env/
@@ -208,6 +209,9 @@ tempCodeRunnerFile.py
 
 # PyPI configuration file
 .pypirc
+
+# Production secret material
+deploy/secrets/
 
 # Marimo
 marimo/_static/

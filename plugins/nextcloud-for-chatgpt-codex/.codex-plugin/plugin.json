@@ -1,0 +1,36 @@
+{
+  "name": "nextcloud-for-chatgpt-codex",
+  "version": "0.3.0",
+  "description": "Connect ChatGPT and Codex to a user-owned Nextcloud workspace through a tenant-isolated MCP bridge.",
+  "author": {
+    "name": "v4t0r",
+    "url": "https://github.com/v4t0r"
+  },
+  "homepage": "https://nextcloud-for-chatgpt.v4t0r.chatgpt.site",
+  "repository": "https://github.com/v4t0r/nextcloud-chatgpt-bridge",
+  "license": "Apache-2.0",
+  "keywords": [
+    "nextcloud",
+    "files",
+    "productivity",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Nextcloud for ChatGPT & Codex",
+    "shortDescription": "Work safely with files in your own Nextcloud workspace.",
+    "longDescription": "Connect a user-owned Nextcloud account, browse and search files, make explicitly requested file changes, and review household invoices inside a user-selected workspace root. Bridge identity and Nextcloud credentials stay separate.",
+    "developerName": "v4t0r",
+    "category": "Productivity",
+    "capabilities": [
+      "Read files",
+      "Write files",
+      "Household invoice review"
+    ],
+    "brandColor": "#0B6D8E",
+    "composerIcon": "assets/nextcloud-bridge-mark.png",
+    "logo": "assets/nextcloud-bridge-mark.png",
+    "logoDark": "assets/nextcloud-bridge-mark.png",
+    "defaultPrompt": "Show the files at the top level of my connected Nextcloud workspace."
+  }
+}

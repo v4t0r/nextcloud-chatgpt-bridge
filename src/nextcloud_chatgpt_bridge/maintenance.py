@@ -1,12 +1,22 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import argparse
+import json
+import time
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, exists, select, tuple_
 from sqlalchemy.orm import Session, sessionmaker
 
-from nextcloud_chatgpt_bridge.persistence import ConnectionRow, PendingLoginRow, SecretRow
+from nextcloud_chatgpt_bridge import __version__
+from nextcloud_chatgpt_bridge.persistence import (
+    ConnectionRow,
+    HostedStorageConfig,
+    PendingLoginRow,
+    SecretRow,
+    create_hosted_engine,
+)
 
 
 @dataclass(slots=True, frozen=True)
@@ -85,3 +95,44 @@ def cleanup_hosted_storage(
             expired_poll_secrets=len(expired_keys),
             orphan_secrets=len(true_orphan_keys),
         )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Remove expired login flows and orphaned encrypted secrets."
+    )
+    parser.add_argument(
+        "--interval-seconds",
+        type=int,
+        default=0,
+        help="Repeat cleanup at this interval; zero runs once.",
+    )
+    parser.add_argument(
+        "--orphan-grace-seconds",
+        type=int,
+        default=3600,
+        help="Minimum age before an unreferenced encrypted secret is removed.",
+    )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    args = parser.parse_args()
+    if args.interval_seconds < 0 or args.orphan_grace_seconds < 60:
+        parser.error("Cleanup timing is outside the allowed range")
+
+    engine = create_hosted_engine(HostedStorageConfig())
+    sessions = sessionmaker(bind=engine, expire_on_commit=False)
+    try:
+        while True:
+            report = cleanup_hosted_storage(
+                sessions,
+                orphan_grace=timedelta(seconds=args.orphan_grace_seconds),
+            )
+            print(json.dumps(asdict(report), sort_keys=True), flush=True)
+            if args.interval_seconds == 0:
+                return
+            time.sleep(args.interval_seconds)
+    finally:
+        engine.dispose()
+
+
+if __name__ == "__main__":
+    main()

@@ -31,7 +31,7 @@ jobs:
       - name: Install release tooling
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install ".[dev,release]"
+          pip install ".[dev,hosted,release]"
 
       - name: Test and lint
         run: |
@@ -49,8 +49,14 @@ jobs:
       - name: Verify wheel installation
         run: |
           python -m venv wheelcheck
-          wheelcheck/bin/pip install dist/*.whl
+          wheel="$(printf '%s\n' dist/*.whl)"
+          wheelcheck/bin/pip install "${wheel}[hosted]"
           wheelcheck/bin/nextcloud-chatgpt-bridge --version
+          wheelcheck/bin/nextcloud-chatgpt-diagnose --version
+          wheelcheck/bin/nextcloud-chatgpt-hosted --version
+          wheelcheck/bin/nextcloud-chatgpt-egress --version
+          wheelcheck/bin/nextcloud-chatgpt-maintenance --version
+          wheelcheck/bin/nextcloud-chatgpt-preflight --version
           wheelcheck/bin/nextcloud-chatgpt-schema | grep "CREATE TABLE bridge_schema_migrations"
 
       - name: Upload workflow artifacts
@@ -66,5 +72,5 @@ jobs:
         run: >-
           gh release create "${GITHUB_REF_NAME}" dist/*
           --verify-tag
-          --title "${GITHUB_REF_NAME} — Developer Release"
+          --title "${GITHUB_REF_NAME} — Beta Release"
           --notes-file "docs/releases/${GITHUB_REF_NAME}.md"

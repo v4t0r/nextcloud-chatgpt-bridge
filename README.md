@@ -1,238 +1,195 @@
-# nextcloud-chatgpt-bridge
+# Nextcloud for ChatGPT & Codex
 
-Open-source bridge for a public **Nextcloud for ChatGPT & Codex** app, with an MCP-first core and standards-based Nextcloud providers.
+![Nextcloud bridge mark](docs/assets/nextcloud-bridge-mark.png)
 
-## Goal
+An open-source, tenant-isolated bridge that lets ChatGPT and Codex work with files in a
+user-owned Nextcloud workspace. The bridge keeps its OAuth identity separate from Nextcloud
+credentials and uses standards-based providers when native Nextcloud MCP capabilities are absent.
 
-Provide a reusable multi-user connector that lets ChatGPT and Codex work with each user's connected Nextcloud account. Native Nextcloud MCP/API capabilities are preferred when available; WebDAV, CalDAV and CardDAV remain standards-based fallback providers.
+Product website: [nextcloud-for-chatgpt.v4t0r.chatgpt.site](https://nextcloud-for-chatgpt.v4t0r.chatgpt.site)
 
-## Current status
+![Landing page preview](docs/assets/landing-preview.png)
 
-`v0.2.0` is the household-workflow developer release. The project now has:
+## Release status
 
-- project bootstrap and CI configuration
-- validated runtime configuration
-- HTTPS-by-default credential transport
-- root-folder security boundaries
-- bounded WebDAV upload/download provider
-- authenticated OCS capability discovery
-- native Nextcloud Context Agent MCP availability probe
-- MCP Python SDK v2 server
-- structured file tools with read/write risk annotations
-- text and small-binary transfer limits
-- in-memory MCP integration tests
-- sanitized live diagnostics with an explicit opt-in write smoke test
-- successful live validation against Nextcloud 33.0.7 using the WebDAV/OCS fallback path
-- OAuth/OIDC-protected hosted MCP server factory
-- Nextcloud Login Flow v2 account connection without collecting the user's Nextcloud password
-- request-scoped bridge identity/session context with issuer-scoped pseudonymous tenant IDs
-- tenant-scoped connection metadata and credential-store interfaces
-- explicit `pending`, `connected` and `disconnected` connection states
-- encrypted PostgreSQL credential storage with tenant-bound AES-GCM authentication data
-- versioned database migration, startup schema verification and orphan-secret maintenance
-- multi-user isolation and hosted-storage tests
-- user-visible Nextcloud app and search-provider inventory without administrator APIs
-- root-bound recursive filename search and redacted read-only share inventory
-- tenant-scoped household profiles tied to owned Nextcloud connections
-- deterministic PDF, UTF-8 text and XML invoice extraction with strict processing limits
-- structured invoice checks and immutable, redacted SHA-256 review reports
-- PostgreSQL schema migration v2 for non-secret household profile metadata
+`v0.3.0` is the public-app and production-deployment release candidate.
 
-The local/self-hosted bridge and public-plugin backend foundation are implemented, but the hosted
-service is not production-ready. Infrastructure-enforced outbound network policy, rate limits,
-audit/privacy controls, deployment wiring and an end-to-end ChatGPT/Codex OAuth test remain
-public-service release gates.
+The repository contains the application-side pieces required for a universal OAuth-protected MCP
+service:
 
-## v0.2.0 scope
+- request-scoped bridge identity and pseudonymous tenant isolation
+- Nextcloud Login Flow v2 without collecting a user's Nextcloud password
+- tenant-scoped metadata plus encrypted PostgreSQL credential storage
+- root-bound WebDAV and OCS providers with explicit read/write tools
+- conservative household invoice review that never approves, books, pays, or transmits
+- rate limiting, request limits, security headers, trusted-host checks, and stateless MCP transport
+- a DNS-rebinding-resistant HTTPS egress proxy and network-isolated production composition
+- database migrations, readiness checks, maintenance cleanup, and release preflight
+- a Codex plugin package plus reviewer-ready OpenAI listing and test material
+- a production landing site with privacy, terms, support, and security pages
 
-This release adds household-account configuration, conservative invoice review, scoped app
-inventory, root-bound file search and read-only share listing. Invoice review never approves,
-books, pays, transmits or automatically archives an invoice. Images and scanned PDFs require a
-future explicit OCR/vision adapter and remain in manual review.
+The source release does **not** claim an active public service or OpenAI approval. Public availability
+still requires an operator-controlled production domain, external OAuth configuration, reviewer
+fixture, verified publisher identity, and successful OpenAI review.
 
-`v0.2.0` does **not** publish or authorize a production multi-tenant hosted service. See
-[SECURITY.md](SECURITY.md), [docs/HOUSEHOLD_ARCHITECTURE.md](docs/HOUSEHOLD_ARCHITECTURE.md) and
-[docs/HOSTED_ACCEPTANCE.md](docs/HOSTED_ACCEPTANCE.md).
+## Real Nextcloud validation
 
-## Planned architecture
+The standards-based fallback path passed a live integration run against Nextcloud `33.0.7`:
+
+- authenticated OCS discovery
+- WebDAV listing, create, upload, download, metadata lookup, move, and cleanup
+- user-visible app inventory and root-bound share inventory
+- isolated synthetic household workspace and invoice-review flow
+
+Native Nextcloud Context Agent MCP was unavailable on that instance. The successful fallback run is
+therefore direct evidence that native MCP is optional rather than a hidden dependency. No credentials
+or instance-identifying values are recorded. See [the compatibility matrix](docs/COMPATIBILITY.md).
+
+## Architecture
 
 ```text
 ChatGPT / Codex
        |
        | OAuth access token
        v
-Public MCP / App boundary
+Public stateless MCP boundary
        |
-       | request-scoped BridgeSessionContext
+       | verified issuer + subject + scopes
+       v
+BridgeSessionContext
+       |
+       | pseudonymous tenant scope
        v
 ConnectionService
-       |-- tenant-scoped metadata store
-       `-- tenant-scoped encrypted credential store
+       |-- PostgreSQL connection metadata
+       `-- AES-256-GCM credential store
        |
-       | per-request Nextcloud settings
+       | Nextcloud Login Flow v2 credential
        v
-HouseholdService / app-access boundary
-       |-- tenant-scoped profile metadata
-       |-- bounded invoice reviewer
-       `-- redacted immutable review reports
-       |
-       v
-Existing provider core
-       |-- Native Nextcloud MCP / Context Agent
-       |-- WebDAV provider (files)
-       |-- CalDAV provider (calendar, planned)
-       |-- CardDAV provider (contacts, planned)
-       `-- OCS / Nextcloud APIs
+Root-bound provider core
+       |-- WebDAV files
+       |-- OCS capabilities, apps, shares, revocation
+       `-- Native Nextcloud MCP discovery when available
 ```
 
-## Current MCP tools
+The bridge identity never contains a Nextcloud username or credential. Every connection, pending
+flow, household profile, and credential operation is scoped by the verified tenant context.
 
-Discovery / read-only:
+## Public MCP tools
+
+**Read and discovery**
 
 - `get_nextcloud_capabilities`
 - `get_nextcloud_app_accesses`
 - `probe_native_nextcloud_mcp`
-- `list_files`
-- `search_files`
-- `list_nextcloud_shares`
-- `get_file_info`
-- `read_text_file`
-- `download_file_base64`
-
-Write / modify:
-
-- `write_text_file`
-- `upload_file_base64`
-- `create_folder`
-- `move_file`
-- `delete_file`
-
-Hosted account connection:
-
-- `begin_nextcloud_connection`
-- `poll_nextcloud_connection`
-- `list_nextcloud_connections`
-- `set_nextcloud_root`
-- `disconnect_nextcloud`
-
-Hosted household workflow:
-
-- `configure_household_account`
-- `list_household_accounts`
-- `prepare_household_workspace`
-- `list_household_invoices`
+- `list_files`, `search_files`, `list_nextcloud_shares`
+- `get_file_info`, `read_text_file`, `download_file_base64`
+- `list_nextcloud_connections`, `list_household_accounts`, `list_household_invoices`
 - `review_household_invoice`
+
+**Create or modify private Nextcloud state**
+
+- `write_text_file`, `upload_file_base64`, `create_folder`, `move_file`, `delete_file`
+- `begin_nextcloud_connection`, `poll_nextcloud_connection`, `set_nextcloud_root`
+- `disconnect_nextcloud`
+- `configure_household_account`, `prepare_household_workspace`
 - `save_household_invoice_review`
 
-See [docs/MCP.md](docs/MCP.md) for tools,
-[docs/AUTH_ARCHITECTURE.md](docs/AUTH_ARCHITECTURE.md) for identity and credential boundaries, and
-[docs/PLUGIN_SUBMISSION.md](docs/PLUGIN_SUBMISSION.md) for the public ChatGPT/Codex plugin gate.
+Every hosted tool has an explicit title, description, input schema, output schema, and risk
+annotations. The production tool contract is locked by automated tests and documented in
+[`submission/TOOL_ANNOTATIONS.md`](submission/TOOL_ANNOTATIONS.md).
 
 ## Security defaults
 
-- bridge OAuth identity and Nextcloud credentials are separate security domains
-- hosted requests derive a fresh immutable session context from the verified access token
-- tenant IDs are pseudonymous hashes of the verified issuer and subject
-- every connection and credential lookup is tenant-scoped
-- Nextcloud app passwords are referenced from metadata, never embedded in it
-- production credential storage encrypts at rest with tenant-bound AES-256-GCM
-- dedicated Nextcloud service user recommended for stronger Nextcloud-side isolation
-- access restricted to a configured root such as `/ChatGPT`
-- account-root access refused by default
-- parent-path traversal rejected before network access
-- out-of-root WebDAV `href` values discarded
-- HTTPS required by default; TLS verification enabled by default
-- local mode loads credentials from environment variables / local `.env`
-- hosted mode uses Nextcloud Login Flow v2 and never asks for the user's Nextcloud password
-- secrets must never be committed
-- overwrite disabled by default
-- configured root can never be deleted
-- transfer size limits enforced in both MCP and WebDAV layers
-- remote response bodies are not reflected into MCP error messages
-- native MCP probing invokes discovery only, never a remote native tool
-- native MCP bearer-token requests do not follow redirects
-- global Unified Search is inventory-only; exposed file search stays below the configured root
-- share responses omit tokens and public share URLs
-- household metadata is tenant-scoped and contains no invoice contents or credentials
-- invoice extraction is bounded by file size, page count and extracted-character limits
-- review responses omit raw extracted text and reveal only the last four IBAN characters
-- duplicate invoice content is detected through SHA-256 and cannot overwrite an existing report
-- invoice tools cannot approve, book, pay, transmit or automatically archive documents
-- local Streamable HTTP binds to `127.0.0.1` by default
-- hosted deployment still requires infrastructure egress controls, rate limits and operational hardening
+- account root `/` and parent traversal are rejected before provider access
+- every returned WebDAV path is rechecked against the configured root
+- HTTPS and TLS verification are mandatory for hosted Nextcloud targets
+- public targets are resolved, validated, and IP-pinned by a CONNECT-only egress proxy
+- bearer tokens, app passwords, share tokens, raw invoice text, and full IBANs are excluded from
+  model-visible results
+- credential ciphertext is tenant-bound through AES-GCM authenticated data
+- overwrite is opt-in; the configured root cannot be deleted
+- request body and transfer sizes are bounded
+- write, overwrite, move, delete, disconnect, and credential-revocation risks are explicit
+- hosted access is stateless and derives a fresh identity for every MCP request
 
-See [SECURITY.md](SECURITY.md).
+Read [`SECURITY.md`](SECURITY.md) before deployment. Report vulnerabilities through
+[GitHub private vulnerability reporting](https://github.com/v4t0r/nextcloud-chatgpt-bridge/security/advisories/new),
+never through a public issue containing secrets or private data.
 
-## Development
+## Local development
 
-Requires Python 3.11+.
+Requires Python 3.11 or newer.
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
-pytest
+pip install -e ".[dev,hosted]"
 ruff check .
+pytest
 ```
 
-Install `.[hosted]` for PostgreSQL-backed connection metadata and encrypted credential storage. Hosted secrets and database URLs are deployment configuration and must never be committed.
+Copy `.env.example` to `.env` only for local testing. Use a dedicated Nextcloud account and app
+password, keep the root narrow, and never commit the resulting file.
 
-Release artifacts contain a wheel, source archive and `SHA256SUMS`. After installing the wheel, `nextcloud-chatgpt-schema` prints the packaged PostgreSQL migration for review/application by an operator.
-
-For a fresh hosted database, the command prints migrations 1 and 2 in order. To upgrade an
-existing v0.1 database, review and apply only `nextcloud-chatgpt-schema --version 2` before starting
-v0.2; hosted startup intentionally refuses any schema version other than 2.
-
-Copy `.env.example` to `.env` only for local testing and replace placeholders with a dedicated Nextcloud account/app password.
-
-Run the MCP server over stdio:
+Run the local stdio server:
 
 ```bash
 nextcloud-chatgpt-bridge
 ```
 
-or:
-
-```bash
-python -m nextcloud_chatgpt_bridge
-```
-
-## Live diagnostics
-
-Read-only connectivity/capability check:
+Run sanitized read-only diagnostics or the explicit temporary write/cleanup smoke test:
 
 ```bash
 nextcloud-chatgpt-diagnose
-```
-
-Explicit write smoke test:
-
-```bash
 nextcloud-chatgpt-diagnose --write-test
 ```
 
-The write test creates one randomized temporary folder below `NEXTCLOUD_ROOT_PATH`, verifies create/upload/download/move, and then removes the folder. Diagnostics emit sanitized JSON and never print credentials or remote response bodies.
+## Production deployment
 
-Live validation against Nextcloud 33.0.7 covers OCS, WebDAV read/write and cleanup. The v0.2
-acceptance adds app inventory, scoped share discovery and an isolated synthetic household invoice
-review. Native Context Agent MCP was not available, confirming the fallback design works in a real
-deployment. See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
+The reference composition is in [`deploy/compose.production.yml`](deploy/compose.production.yml).
+It separates PostgreSQL, the bridge, maintenance, egress, and TLS termination, and keeps the bridge
+off the direct external network.
 
-## Roadmap
+```bash
+cp deploy/.env.production.example deploy/.env.production
+docker compose --env-file deploy/.env.production \
+  -f deploy/compose.production.yml config
+docker compose --env-file deploy/.env.production \
+  -f deploy/compose.production.yml up -d
+```
 
-1. bootstrap, WebDAV/OCS core and MCP tool layer — implemented and live-validated
-2. multi-user connection, identity and encrypted credential storage — implemented
-3. `v0.1.0` installable developer release — implemented
-4. root-bound search, read-only shares and user-visible app inventory — implemented in `v0.2.0`
-5. household profiles and conservative invoice review — implemented in `v0.2.0`
-6. optional OCR/vision and electronic-invoice improvements — planned for `v0.2.1`
-7. CalDAV/CardDAV and modular Nextcloud app adapters — planned for `v0.3.0`
-8. production hosting, OAuth acceptance and operational security gates — planned for `v0.3.x`
-9. OpenAI review and universal Plugins Directory publication — final public-release milestone
+Supply database and encryption secrets as files outside Git. Apply migrations through the dedicated
+`migrate` service, then run `nextcloud-chatgpt-preflight` against the exact public MCP, OAuth,
+website, support, privacy, and terms URLs before any reviewer access.
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for milestone boundaries and the planned separation between
-the provider-neutral bridge core and any optional OpenAI API/vision integration.
+See [`docs/PRODUCTION_DEPLOYMENT.md`](docs/PRODUCTION_DEPLOYMENT.md) and
+[`docs/HOSTED_ACCEPTANCE.md`](docs/HOSTED_ACCEPTANCE.md).
+
+## OpenAI submission package
+
+Repository-side review material lives in [`submission/`](submission/):
+
+- canonical listing copy and starter prompts
+- positive and negative reviewer cases
+- reviewer fixture and runbook
+- exact tool-annotation inventory
+- release notes and final operational checklist
+
+The final OpenAI submission remains an owner-controlled action. See
+[`docs/PLUGIN_SUBMISSION.md`](docs/PLUGIN_SUBMISSION.md).
+
+## Project documents
+
+- [Authentication and credential boundaries](docs/AUTH_ARCHITECTURE.md)
+- [MCP tools and provider behavior](docs/MCP.md)
+- [Household and invoice boundary](docs/HOUSEHOLD_ARCHITECTURE.md)
+- [Privacy model](docs/PRIVACY.md)
+- [Terms and service boundary](docs/TERMS.md)
+- [Release process](docs/RELEASE.md)
+- [Roadmap](docs/ROADMAP.md)
 
 ## License
 
-Licensed under the [Apache License 2.0](LICENSE). See [CHANGELOG.md](CHANGELOG.md) for release history.
+Licensed under the [Apache License 2.0](LICENSE). This independent project is not affiliated with or
+endorsed by Nextcloud GmbH or OpenAI.

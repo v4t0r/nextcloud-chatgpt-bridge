@@ -5,8 +5,10 @@ from sqlalchemy import create_engine, text
 
 from nextcloud_chatgpt_bridge.migration import (
     all_migrations_sql,
+    current_schema_version,
     initial_migration_sql,
     migration_sql,
+    pending_migration_versions,
 )
 from nextcloud_chatgpt_bridge.persistence import PersistenceError
 from nextcloud_chatgpt_bridge.schema import verify_hosted_schema
@@ -19,6 +21,17 @@ def test_initial_migration_is_packaged_and_versioned():
     assert "INSERT INTO bridge_schema_migrations (version) VALUES (1)" in migration
     assert "CREATE TABLE household_profiles" in migration_sql(2)
     assert "INSERT INTO bridge_schema_migrations (version) VALUES (2)" in all_migrations_sql()
+
+
+def test_migration_plan_is_ordered_and_current_schema_has_no_pending_versions():
+    assert pending_migration_versions(0) == (1, 2)
+    assert pending_migration_versions(1) == (2,)
+    assert pending_migration_versions(2) == ()
+
+
+def test_current_schema_version_returns_zero_before_initialization():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    assert current_schema_version(engine) == 0
 
 
 def test_schema_verifier_accepts_exact_expected_version():

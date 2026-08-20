@@ -175,3 +175,59 @@ async def test_hosted_server_marks_private_nextcloud_tools_closed_world():
         assert tools["disconnect_nextcloud"].annotations.open_world_hint is False
     finally:
         core.configure_settings_resolver(LocalSettingsResolver())
+
+
+async def test_hosted_server_tool_contract_is_submission_complete():
+    service = FakeConnectionService()
+    mcp = hosted.create_hosted_mcp(
+        connection_service=service,  # type: ignore[arg-type]
+        auth_config=auth_config(),
+        household_service=FakeHouseholdService(),  # type: ignore[arg-type]
+    )
+    expected = {
+        "get_nextcloud_capabilities": (True, False, None),
+        "get_nextcloud_app_accesses": (True, False, None),
+        "probe_native_nextcloud_mcp": (True, False, None),
+        "list_files": (True, False, None),
+        "search_files": (True, False, None),
+        "list_nextcloud_shares": (True, False, None),
+        "get_file_info": (True, False, None),
+        "read_text_file": (True, False, None),
+        "download_file_base64": (True, False, None),
+        "write_text_file": (False, True, False),
+        "upload_file_base64": (False, True, False),
+        "create_folder": (False, False, False),
+        "move_file": (False, True, False),
+        "delete_file": (False, True, True),
+        "begin_nextcloud_connection": (False, False, False),
+        "poll_nextcloud_connection": (False, False, False),
+        "list_nextcloud_connections": (True, False, None),
+        "set_nextcloud_root": (False, False, True),
+        "disconnect_nextcloud": (False, True, False),
+        "configure_household_account": (False, False, True),
+        "list_household_accounts": (True, False, None),
+        "prepare_household_workspace": (False, False, True),
+        "list_household_invoices": (True, False, None),
+        "review_household_invoice": (True, False, None),
+        "save_household_invoice_review": (False, False, True),
+    }
+
+    try:
+        async with Client(mcp) as client:
+            listed = await client.list_tools()
+
+        tools = {tool.name: tool for tool in listed.tools}
+        assert set(tools) == set(expected)
+        for name, (read_only, destructive, idempotent) in expected.items():
+            tool = tools[name]
+            assert tool.title
+            assert tool.description
+            assert tool.input_schema
+            assert tool.output_schema
+            assert tool.annotations is not None
+            assert tool.annotations.read_only_hint is read_only
+            assert tool.annotations.destructive_hint is destructive
+            assert tool.annotations.open_world_hint is False
+            assert tool.annotations.idempotent_hint is idempotent
+    finally:
+        core.configure_settings_resolver(LocalSettingsResolver())

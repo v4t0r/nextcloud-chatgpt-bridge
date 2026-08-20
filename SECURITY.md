@@ -2,142 +2,148 @@
 
 ## Current status
 
-`v0.2.x` is a developer/self-hosted release and is not intended to operate as an internet-facing
-public multi-tenant service. The hosted multi-user identity, connection, encrypted-storage and
-household-workflow foundations are implemented; infrastructure and operational release gates
-remain.
+`v0.3.x` is the supported beta line and the first public-app deployment candidate. The repository
+implements the application security boundary and a hardened reference composition, but it does not
+claim that a public hosted service is active. A deployer must supply and verify production OAuth,
+domains, secrets, retention, monitoring, and reviewer operations before exposure.
 
 ## Supported versions
 
 | Version | Security updates |
 |---|---|
-| `0.2.x` | Supported |
-| `0.1.x` | Critical fixes only |
-| `< 0.1.0` | Unsupported development snapshots |
+| `0.3.x` | Supported |
+| `0.2.x` | Critical fixes only |
+| `0.1.x` | Unsupported |
 
-## Security principles
+## Core principles
 
-- Least privilege by default.
-- Never commit passwords, app passwords, cookies, OAuth tokens, session tokens, API keys or private keys.
-- Keep the ChatGPT/Codex-to-bridge identity boundary separate from bridge-to-Nextcloud credentials.
+- Never commit passwords, app passwords, OAuth tokens, API keys, cookies, private keys, or live
+  service configuration.
+- Keep ChatGPT/Codex-to-bridge identity separate from bridge-to-Nextcloud credentials.
 - Derive tenant scope only from a verified OAuth/OIDC issuer and subject, never from tool input.
-- Resolve a fresh immutable bridge session context for each authenticated MCP request.
-- Apply tenant predicates to metadata and credential reads, writes and deletes.
-- Prefer a dedicated Nextcloud service user with access restricted to a dedicated root such as `/ChatGPT`.
-- Refuse account-root access by default.
-- Reject path traversal outside the configured root before network access.
-- Ignore WebDAV metadata entries whose returned `href` escapes the configured root boundary.
-- Require HTTPS for Nextcloud credentials by default; plain HTTP needs an explicit development override.
-- TLS certificate verification is enabled by default.
-- Never reflect untrusted remote response bodies into MCP error messages.
-- Treat file contents, WebDAV metadata, OCS metadata and native MCP metadata as untrusted data.
-- Read and write capabilities are exposed as separate MCP tools so clients can apply distinct approval policies.
-- Overwrite is disabled by default and deletion of the configured workspace root is always refused.
-- Native Nextcloud MCP/API capabilities may be used when available; WebDAV/CalDAV/CardDAV remain isolated provider layers.
-- Never expose global search results when the configured workspace root cannot be enforced.
-- Never return Nextcloud share tokens or public share URLs from inventory tools.
-- Treat invoice files and extracted fields as untrusted data, never as executable instructions.
+- Build a fresh immutable `BridgeSessionContext` for every authenticated MCP request.
+- Apply tenant predicates to every connection, flow, profile, and credential operation.
+- Restrict all file operations to a configured non-root Nextcloud workspace.
+- Treat filenames, file bodies, WebDAV/OCS data, native MCP metadata, and invoice text as untrusted.
+- Expose reads and writes as separate tools with explicit risk annotations.
+- Fail closed on path, identity, schema, credential, transport, and provider ambiguity.
+
+## Identity and credential separation
+
+The public bridge validates JWT signature algorithm, issuer, audience, expiry, subject, and required
+scopes. Its tenant ID is a pseudonymous SHA-256 digest of the exact issuer and subject pair, so equal
+subjects from different issuers cannot collide.
+
+`BridgeIdentity` and `BridgeSessionContext` contain no Nextcloud username, app password, or credential
+reference. The first public version resolves exactly one connected account per tenant for file
+operations and refuses to guess when zero or multiple active connections exist.
+
+Nextcloud connection uses Login Flow v2. The user authenticates directly with Nextcloud, including
+Nextcloud-managed 2FA. The bridge never asks for the user's Nextcloud password. Generated app
+passwords are stored separately from connection metadata.
+
+The production credential store:
+
+- encrypts each credential with AES-256-GCM
+- binds tenant ID, credential reference, key ID, and format version as authenticated data
+- requires both tenant ID and credential reference for every operation
+- supports bounded key IDs for rotation
+- deletes the local credential on disconnect even if remote revocation fails
+
+Database passwords and encryption keyrings must remain in the deployment secret manager or mounted
+secret files. Managed KMS/HSM envelope encryption is recommended for larger production deployments.
+
+## Workspace boundary
+
+Nextcloud app passwords are account-level credentials, so the selected bridge root is a deterministic
+application boundary rather than a Nextcloud token scope.
+
+- account root `/` is refused
+- parent traversal is refused before network access
+- provider URLs are built below the configured root
+- WebDAV responses outside the root are discarded
+- overwrite is disabled unless explicitly requested
+- deletion of the configured root is always refused
+- transfer and request body sizes are bounded
+
+A dedicated Nextcloud service user remains the strongest optional Nextcloud-side isolation for
+sensitive deployments.
+
+## Public network boundary
+
+A hosted service accepts a user-supplied Nextcloud hostname and therefore creates an SSRF boundary.
+The production reference uses two independent controls:
+
+1. `PublicHostedPolicy` rejects non-HTTPS URLs, embedded credentials, queries/fragments, disallowed
+   ports, and any hostname resolving to localhost, private, loopback, link-local, reserved, or other
+   non-global addresses.
+2. The CONNECT-only egress proxy resolves every HTTPS destination itself, rejects any non-global
+   result, and connects to the validated IP rather than resolving the hostname again. The bridge
+   container has no direct external network path.
+
+The public MCP process also applies:
+
+- exact trusted-host allowlisting with no wildcards
+- MCP transport DNS-rebinding protection
+- optional exact origin allowlisting
+- per-token and per-client-address rate limits with bounded limiter state
+- request body limits
+- no-store, HSTS, CSP, frame, referrer, permission, and content-type security headers
+- stateless Streamable HTTP and one request-scoped identity per call
+- readiness checks for PostgreSQL and the exact schema version
+
+Self-hosted local mode intentionally permits private-LAN Nextcloud servers and must not be exposed
+through the public reference boundary without equivalent controls.
 
 ## Native Context Agent MCP
 
-The bridge may probe Nextcloud Context Agent at its documented MCP endpoint using the user's Nextcloud app password as a Bearer token.
+Native Nextcloud MCP probing is discovery-only:
 
-The probe is intentionally read-only:
+- performs MCP initialization and tool listing only
+- invokes no native tool
+- follows no credential-bearing redirects
+- bounds, sanitizes, and truncates reported tool names
+- excludes remote response bodies and credentials from errors
 
-- it performs MCP discovery and `list_tools` only
-- it does not invoke any native Nextcloud tool
-- bearer-token requests do not follow redirects
-- reported tool names are bounded, sanitized and truncated before exposure to the outer MCP host
-- probe failures are returned without response bodies, tokens or low-level exception details
+Discovery success never authorizes native tool invocation.
 
-Native tool invocation is a separate future capability and must not be enabled merely because discovery succeeds.
+## Nextcloud app and share inventory
 
-## Credential handling
+App discovery uses user-visible navigation and search-provider endpoints, not administrator app
+management APIs. Apps without an implemented provider are reported as `detected_only`.
 
-Local development uses environment variables or a `.env` file that must never be committed. `.env.example` contains placeholders only.
-
-Hosted account connection uses Nextcloud Login Flow v2. The user authenticates directly with Nextcloud; the bridge receives a generated app password and never asks for the user's Nextcloud password.
-
-Connection metadata stores only an opaque `credential_ref`. The credential-store interface requires both the pseudonymous tenant ID and credential reference for every operation. The included PostgreSQL implementation:
-
-- encrypts credentials with AES-256-GCM
-- binds tenant ID, credential reference, key ID and format version as authenticated data
-- supports key rotation through bounded key IDs
-- never returns another tenant's credential, even if its reference is supplied
-- deletes local credentials during disconnect even when remote revocation fails
-
-Deployment encryption keys and database credentials remain outside the repository. A managed KMS/HSM envelope-encryption integration is still recommended before public production use.
-
-## Bridge identity and tenant isolation
-
-The hosted MCP token verifier pins signature algorithm, issuer, audience, expiry and required scopes. A request-scoped `BridgeSessionContext` is created from the verified token. Its tenant ID is a stable pseudonymous SHA-256 digest of the exact OIDC issuer and subject pair.
-
-This design prevents same-value `sub` claims from different issuers from sharing data if multi-issuer authentication is introduced later. Connection and pending-flow IDs return the same not-found behavior for missing and foreign tenants. No process-global user identity or Nextcloud credential is cached between requests.
+Filename search walks WebDAV only below the configured root with fixed depth, scan, and result caps.
+Global Unified Search results are not exposed because their root scope cannot be guaranteed. Share
+inventory rechecks every path and omits public URLs and share tokens.
 
 ## Household and invoice boundary
 
-Household profiles are non-secret metadata records keyed by both tenant and owned Nextcloud
-connection. A caller cannot select a tenant ID in tool input. Profile lookup, workspace setup,
-candidate listing, invoice review and report storage all use the request-scoped tenant context.
-Hosted persistence enforces the tenant/connection pair with a composite foreign key and removes
-profile metadata when its connection is deleted.
+Household profiles are tenant-scoped non-secret metadata bound to an owned connection. Invoice
+review is advisory and deliberately cannot approve, book, pay, transmit, or automatically archive.
 
-Invoice review is deliberately advisory:
+- file paths must remain inside the configured invoice inbox
+- supported files are bounded by size, page count, and extracted characters
+- image-only or unextractable documents return explicit OCR/manual-review status
+- raw extracted text is neither returned nor stored in the profile database
+- only the last four IBAN characters may be exposed
+- immutable reports are named by SHA-256 and cannot overwrite a duplicate
 
-- files must stay inside the profile's configured invoice inbox
-- transfer limits are checked before download and oversized supported files are not listed
-- PDF parsing is limited to 100 pages and extracted text to 200,000 characters
-- image-only documents and PDFs without extractable text require explicit future OCR/vision review
-- raw extracted text is never returned or persisted in the profile database
-- only the last four IBAN characters may appear in a review
-- review reports are named by SHA-256 and written without overwrite
-- an existing file hash becomes an explicit duplicate/manual-review result
-- no tool approves, books, pays, transmits or automatically moves an invoice
+Saved review reports still contain personal or financial metadata and require an operator-defined
+retention and deletion policy inside Nextcloud.
 
-Stored JSON reports contain structured invoice metadata needed for human review. Deployers must
-treat those reports as personal/financial data and apply Nextcloud access control, retention and
-deletion policies accordingly.
+## Operations required before public launch
 
-## Nextcloud app access
-
-App discovery uses the authenticated user's navigation and search-provider endpoints, not
-administrator app-management APIs. Apps without an implemented provider are reported as
-`detected_only`; detection never implies authorization to invoke that app.
-
-The exposed filename search walks WebDAV below `NEXTCLOUD_ROOT_PATH` with fixed depth, result and
-scan caps. Nextcloud Unified Search providers are inventoried but global provider search is not
-exposed because its results cannot be guaranteed to remain inside the bridge root. Share listing
-passes a root-bound path to OCS, rechecks every returned path and excludes share tokens and URLs.
-
-## Public multi-tenant network boundary
-
-Hosted mode accepts user-supplied Nextcloud URLs and therefore creates an SSRF boundary. Application preflight validation is implemented, but a public service **must not be released** until deterministic outbound-network controls duplicate that policy after DNS resolution and at connection time.
-
-Implemented application controls include:
-
-- HTTPS-only hosted targets and allowed-port policy
-- rejection of embedded credentials, query strings and fragments
-- rejection of localhost, private, loopback, link-local, reserved and other non-global addresses
-- same-origin Login Flow URLs and completion server validation
-- no credential-bearing redirects in the native MCP probe
-- per-tenant metadata and encrypted credential isolation
-- OAuth/OIDC-protected hosted MCP construction
-
-Remaining public release gates include:
-
-- DNS-rebinding-safe outbound proxy/firewall/resolver enforcement
-- rate limits and abuse controls
-- secret-free audit logging
-- privacy, retention and deletion policy enforcement
-- financial-data retention and redacted household audit controls
-- production process management and deployment monitoring
-
-Self-hosted users may legitimately run Nextcloud on private networks, so these hosted-service controls must not be confused with the local deployment policy.
-
-## Public MCP transport
-
-The local Streamable HTTP mode binds to loopback and remains a development transport. The hosted server factory adds OAuth/OIDC resource-server validation and stateless request identity, but it is not a complete deployment. Public exposure still requires TLS termination, host/origin protection, trusted proxy configuration, rate limits and production process management.
+- production OAuth/OIDC issuer, JWKS, audience, scopes, PKCE, and client-registration mode validated
+- external secrets, backup, restore, and key-rotation procedures tested
+- production domain, TLS, monitoring, alerting, log retention, and incident response configured
+- legal pages completed with the actual hosting and OAuth providers and applicable transfer details
+- data deletion and account-disconnect procedures verified
+- reviewer identity and synthetic Nextcloud fixture isolated from real data
+- `nextcloud-chatgpt-preflight` and the hosted acceptance runbook pass on the exact public endpoints
 
 ## Reporting vulnerabilities
 
-Report findings privately to the repository owner. Do not include live credentials, private file contents or exploit data in a public issue. A dedicated private vulnerability-reporting channel will be documented before the hosted service is submitted publicly.
+Use [GitHub private vulnerability reporting](https://github.com/v4t0r/nextcloud-chatgpt-bridge/security/advisories/new).
+Do not put credentials, private URLs, file contents, personal data, or exploit details in a public
+issue. If private reporting is unavailable, open a public issue containing only a request for a
+private contact channel.
