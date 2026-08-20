@@ -22,8 +22,9 @@ Private development repository. The project now has:
 - text and small-binary transfer limits
 - in-memory MCP integration tests
 - sanitized live diagnostics with an explicit opt-in write smoke test
+- successful live validation against Nextcloud 33.0.7 using the WebDAV/OCS fallback path
 
-The next milestone is live validation against a dedicated Nextcloud account. Production-grade public MCP authentication and hosted-service SSRF controls remain explicit release blockers.
+The next milestone is an end-to-end ChatGPT-to-bridge MCP connection. Production-grade public MCP authentication and hosted-service SSRF controls remain explicit release blockers.
 
 ## Planned architecture
 
@@ -125,12 +126,14 @@ nextcloud-chatgpt-diagnose --write-test
 
 The write test creates one randomized temporary folder below `NEXTCLOUD_ROOT_PATH`, verifies create/upload/download/move, and then removes the folder. Diagnostics emit sanitized JSON and never print credentials or remote response bodies.
 
+The first live validation passed against Nextcloud 33.0.7 with OCS, WebDAV read/write and cleanup all successful. Native Context Agent MCP was not available, confirming the fallback design works in a real deployment. See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
+
 ## Roadmap
 
 1. project bootstrap and CI — implemented
-2. WebDAV files MVP — implemented
-3. MCP tool layer — implemented, pending live validation
-4. native Nextcloud capability/MCP detection — implemented, pending live validation
+2. WebDAV files MVP — implemented and live-validated
+3. MCP tool layer — implemented; end-to-end ChatGPT connection pending
+4. native Nextcloud capability/MCP detection — implemented; fallback live-validated
 5. production MCP authentication / deployment boundary
 6. search, shares, tags and versions
 7. CalDAV calendar support
