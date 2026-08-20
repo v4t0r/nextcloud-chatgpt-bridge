@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 from mcp import Client
 
@@ -98,7 +100,7 @@ def anyio_backend():
     return "asyncio"
 
 
-async def test_mcp_lists_file_tools_with_risk_annotations(monkeypatch):
+async def test_mcp_lists_file_and_discovery_tools_with_risk_annotations(monkeypatch):
     install_fake(monkeypatch)
 
     async with Client(server.mcp) as client:
@@ -106,6 +108,8 @@ async def test_mcp_lists_file_tools_with_risk_annotations(monkeypatch):
 
     tools = {tool.name: tool for tool in listed.tools}
     assert {
+        "get_nextcloud_capabilities",
+        "probe_native_nextcloud_mcp",
         "list_files",
         "get_file_info",
         "read_text_file",
@@ -116,9 +120,50 @@ async def test_mcp_lists_file_tools_with_risk_annotations(monkeypatch):
         "move_file",
         "delete_file",
     } <= tools.keys()
+    assert tools["get_nextcloud_capabilities"].annotations.read_only_hint is True
+    assert tools["probe_native_nextcloud_mcp"].annotations.read_only_hint is True
     assert tools["list_files"].annotations.read_only_hint is True
     assert tools["delete_file"].annotations.destructive_hint is True
     assert tools["create_folder"].annotations.destructive_hint is False
+
+
+async def test_native_mcp_probe_returns_available_without_invoking_tools(monkeypatch):
+    install_fake(monkeypatch)
+
+    async def fake_probe(settings):
+        return SimpleNamespace(
+            endpoint="https://cloud.example.com/index.php/apps/app_api/proxy/context_agent/mcp/",
+            protocol_version="2026-07-28",
+            tool_names=("files_list", "calendar_search"),
+            tools_truncated=False,
+        )
+
+    monkeypatch.setattr(server, "probe_context_agent_mcp", fake_probe)
+
+    async with Client(server.mcp) as client:
+        result = await client.call_tool("probe_native_nextcloud_mcp", {})
+
+    assert result.is_error is False
+    assert result.structured_content["available"] is True
+    assert result.structured_content["protocol_version"] == "2026-07-28"
+    assert result.structured_content["tool_names"] == ["files_list", "calendar_search"]
+
+
+async def test_native_mcp_probe_reports_unavailable_without_leaking_failure(monkeypatch):
+    install_fake(monkeypatch)
+
+    async def failing_probe(settings):
+        raise server.NativeMCPError("internal sensitive detail")
+
+    monkeypatch.setattr(server, "probe_context_agent_mcp", failing_probe)
+
+    async with Client(server.mcp) as client:
+        result = await client.call_tool("probe_native_nextcloud_mcp", {})
+
+    assert result.is_error is False
+    assert result.structured_content["available"] is False
+    assert result.structured_content["tool_names"] == []
+    assert "internal sensitive detail" not in str(result.structured_content)
 
 
 async def test_mcp_reads_utf8_text_as_structured_output(monkeypatch):
