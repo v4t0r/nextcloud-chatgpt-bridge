@@ -10,16 +10,20 @@ Provide a reusable connector that lets ChatGPT work with Nextcloud files first, 
 
 Private development repository. The project now has:
 
-- project bootstrap and CI
+- project bootstrap and CI configuration
 - validated runtime configuration
+- HTTPS-by-default credential transport
 - root-folder security boundaries
-- WebDAV file provider
+- bounded WebDAV upload/download provider
+- authenticated OCS capability discovery
+- native Nextcloud Context Agent MCP availability probe
 - MCP Python SDK v2 server
 - structured file tools with read/write risk annotations
 - text and small-binary transfer limits
 - in-memory MCP integration tests
+- sanitized live diagnostics with an explicit opt-in write smoke test
 
-The next milestone is a live test against a dedicated Nextcloud account, followed by native Nextcloud capability detection and production-grade MCP authentication.
+The next milestone is live validation against a dedicated Nextcloud account. Production-grade public MCP authentication and hosted-service SSRF controls remain explicit release blockers.
 
 ## Planned architecture
 
@@ -38,10 +42,12 @@ Nextcloud Bridge
    `-- OCS / Nextcloud APIs (shares and app capabilities)
 ```
 
-## Current MCP file tools
+## Current MCP tools
 
-Read-only:
+Discovery / read-only:
 
+- `get_nextcloud_capabilities`
+- `probe_native_nextcloud_mcp`
 - `list_files`
 - `get_file_info`
 - `read_text_file`
@@ -64,13 +70,15 @@ See [docs/MCP.md](docs/MCP.md) for startup, transport and security details.
 - account-root access refused by default
 - parent-path traversal rejected before network access
 - out-of-root WebDAV `href` values discarded
-- TLS verification enabled by default
+- HTTPS required by default; TLS verification enabled by default
 - credentials loaded from environment variables / local `.env`
 - secrets must never be committed
 - overwrite disabled by default
 - configured root can never be deleted
-- file-transfer size limits enforced
-- WebDAV response bodies are not reflected into MCP error messages
+- transfer size limits enforced in both MCP and WebDAV layers
+- remote response bodies are not reflected into MCP error messages
+- native MCP probing invokes discovery only, never a remote native tool
+- native MCP bearer-token requests do not follow redirects
 - Streamable HTTP binds to `127.0.0.1` by default and is not considered public-deployment ready
 
 See [SECURITY.md](SECURITY.md).
@@ -101,12 +109,28 @@ or:
 python -m nextcloud_chatgpt_bridge
 ```
 
+## Live diagnostics
+
+Read-only connectivity/capability check:
+
+```bash
+nextcloud-chatgpt-diagnose
+```
+
+Explicit write smoke test:
+
+```bash
+nextcloud-chatgpt-diagnose --write-test
+```
+
+The write test creates one randomized temporary folder below `NEXTCLOUD_ROOT_PATH`, verifies create/upload/download/move, and then removes the folder. Diagnostics emit sanitized JSON and never print credentials or remote response bodies.
+
 ## Roadmap
 
 1. project bootstrap and CI — implemented
 2. WebDAV files MVP — implemented
-3. MCP tool layer — implemented, pending live Nextcloud validation
-4. native Nextcloud capability detection
+3. MCP tool layer — implemented, pending live validation
+4. native Nextcloud capability/MCP detection — implemented, pending live validation
 5. production MCP authentication / deployment boundary
 6. search, shares, tags and versions
 7. CalDAV calendar support
