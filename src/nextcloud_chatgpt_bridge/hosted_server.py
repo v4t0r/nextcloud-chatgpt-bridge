@@ -15,6 +15,14 @@ from nextcloud_chatgpt_bridge.connections.models import (
     DisconnectResult,
 )
 from nextcloud_chatgpt_bridge.connections.service import ConnectionError, ConnectionService
+from nextcloud_chatgpt_bridge.household.models import (
+    HouseholdProfileSummary,
+    HouseholdWorkspaceResult,
+    InvoiceCandidate,
+    InvoiceReview,
+    SavedInvoiceReview,
+)
+from nextcloud_chatgpt_bridge.household.service import HouseholdError, HouseholdService
 from nextcloud_chatgpt_bridge.runtime import HostedSettingsResolver, current_session_context
 
 
@@ -27,6 +35,12 @@ def _connection_error(exc: Exception) -> RuntimeError:
     if isinstance(exc, (ConnectionError, ValueError)):
         return RuntimeError(str(exc))
     return RuntimeError("Nextcloud connection operation failed")
+
+
+def _household_error(exc: Exception) -> RuntimeError:
+    if isinstance(exc, (HouseholdError, ConnectionError, ValueError)):
+        return RuntimeError(str(exc))
+    return RuntimeError("Household operation failed")
 
 
 def _register_core_tools(mcp: MCPServer) -> None:
@@ -48,11 +62,26 @@ def _register_core_tools(mcp: MCPServer) -> None:
         annotations=read,
     )
     mcp.add_tool(
+        core.get_nextcloud_app_accesses,
+        title="Inspect accessible Nextcloud apps",
+        annotations=read,
+    )
+    mcp.add_tool(
         core.probe_native_nextcloud_mcp,
         title="Probe native Nextcloud MCP",
         annotations=read,
     )
     mcp.add_tool(core.list_files, title="List Nextcloud files", annotations=read)
+    mcp.add_tool(
+        core.search_files,
+        title="Search files inside the Nextcloud workspace",
+        annotations=read,
+    )
+    mcp.add_tool(
+        core.list_nextcloud_shares,
+        title="List shares inside the Nextcloud workspace",
+        annotations=read,
+    )
     mcp.add_tool(core.get_file_info, title="Get Nextcloud file info", annotations=read)
     mcp.add_tool(core.read_text_file, title="Read Nextcloud text file", annotations=read)
     mcp.add_tool(
@@ -101,6 +130,7 @@ def create_hosted_mcp(
     *,
     connection_service: ConnectionService,
     auth_config: HostedAuthConfig,
+    household_service: HouseholdService | None = None,
 ) -> MCPServer:
     """Create the OAuth-protected public/plugin MCP server.
 
@@ -223,5 +253,132 @@ def create_hosted_mcp(
             )
         except Exception as exc:
             raise _connection_error(exc) from exc
+
+    if household_service is not None:
+
+        @mcp.tool(
+            title="Configure a household account",
+            annotations=ToolAnnotations(
+                read_only_hint=False,
+                destructive_hint=False,
+                idempotent_hint=True,
+                open_world_hint=False,
+            ),
+        )
+        def configure_household_account(
+            connection_id: str,
+            display_name: str,
+            invoice_inbox_path: str = "Household/Invoices/Inbox",
+            invoice_archive_path: str = "Household/Invoices/Archive",
+            review_report_path: str = "Household/Invoices/Reviews",
+            default_currency: str = "EUR",
+        ) -> HouseholdProfileSummary:
+            """Create or update non-secret household paths for one owned Nextcloud connection."""
+            try:
+                return household_service.configure_profile(
+                    context=current_session_context(),
+                    connection_id=connection_id,
+                    display_name=display_name,
+                    invoice_inbox_path=invoice_inbox_path,
+                    invoice_archive_path=invoice_archive_path,
+                    review_report_path=review_report_path,
+                    default_currency=default_currency,
+                )
+            except Exception as exc:
+                raise _household_error(exc) from exc
+
+        @mcp.tool(
+            title="List household accounts",
+            annotations=ToolAnnotations(
+                read_only_hint=True,
+                destructive_hint=False,
+                open_world_hint=False,
+            ),
+        )
+        def list_household_accounts() -> list[HouseholdProfileSummary]:
+            """List credential-free household profiles owned by the authenticated bridge user."""
+            try:
+                return household_service.list_profiles(context=current_session_context())
+            except Exception as exc:
+                raise _household_error(exc) from exc
+
+        @mcp.tool(
+            title="Prepare household invoice folders",
+            annotations=ToolAnnotations(
+                read_only_hint=False,
+                destructive_hint=False,
+                idempotent_hint=True,
+                open_world_hint=False,
+            ),
+        )
+        def prepare_household_workspace(profile_id: str) -> HouseholdWorkspaceResult:
+            """Create only missing inbox, archive, and review folders inside the workspace root."""
+            try:
+                return household_service.prepare_workspace(
+                    context=current_session_context(),
+                    profile_id=profile_id,
+                )
+            except Exception as exc:
+                raise _household_error(exc) from exc
+
+        @mcp.tool(
+            title="List household invoice candidates",
+            annotations=ToolAnnotations(
+                read_only_hint=True,
+                destructive_hint=False,
+                open_world_hint=False,
+            ),
+        )
+        def list_household_invoices(profile_id: str) -> list[InvoiceCandidate]:
+            """List bounded supported invoice files directly inside the configured inbox."""
+            try:
+                return household_service.list_invoice_candidates(
+                    context=current_session_context(),
+                    profile_id=profile_id,
+                )
+            except Exception as exc:
+                raise _household_error(exc) from exc
+
+        @mcp.tool(
+            title="Review a household invoice",
+            annotations=ToolAnnotations(
+                read_only_hint=True,
+                destructive_hint=False,
+                open_world_hint=False,
+            ),
+        )
+        def review_household_invoice(profile_id: str, invoice_path: str) -> InvoiceReview:
+            """Extract structured checks without approving, booking, paying, or moving the invoice."""
+            try:
+                return household_service.review_invoice(
+                    context=current_session_context(),
+                    profile_id=profile_id,
+                    invoice_path=invoice_path,
+                )
+            except Exception as exc:
+                raise _household_error(exc) from exc
+
+        @mcp.tool(
+            title="Save a household invoice review",
+            annotations=ToolAnnotations(
+                read_only_hint=False,
+                destructive_hint=False,
+                idempotent_hint=True,
+                open_world_hint=False,
+            ),
+        )
+        def save_household_invoice_review(
+            profile_id: str,
+            invoice_path: str,
+        ) -> SavedInvoiceReview:
+            """Save one immutable, redacted JSON review keyed by the invoice file hash."""
+            try:
+                return household_service.save_invoice_review(
+                    context=current_session_context(),
+                    profile_id=profile_id,
+                    invoice_path=invoice_path,
+                )
+            except Exception as exc:
+                raise _household_error(exc) from exc
 
     return mcp

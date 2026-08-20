@@ -1,6 +1,6 @@
 # Live Nextcloud validation
 
-This is the acceptance test for the current Files/MCP milestone.
+This is the acceptance test for the Files/MCP and v0.2 household milestones.
 
 ## Test account
 
@@ -85,6 +85,49 @@ Expected result includes:
 }
 ```
 
+## v0.2 household and app-access acceptance test
+
+Run this only after the read-only test succeeds. The v0.2 test writes synthetic data below one
+randomized `.bridge-v020-smoke-*` folder and removes it in `finally` cleanup.
+
+```powershell
+.\scripts\diagnose-nextcloud.ps1 `
+  -BaseUrl "https://cloud.example.com" `
+  -Username "chatgpt-bridge" `
+  -RootPath "/ChatGPT" `
+  -Version020Test
+```
+
+For a release acceptance run, pass both `-WriteTest` and `-Version020Test`. The second test:
+
+1. inventories user-visible navigation apps and Unified Search provider names
+2. lists shares constrained to the configured root without returning tokens or public URLs
+3. creates isolated household inbox/archive/review folders
+4. uploads one synthetic text invoice containing no real personal data
+5. lists and reviews the invoice through `HouseholdService`
+6. saves one immutable SHA-256 review report
+7. repeats the save and verifies duplicate detection prevents overwrite
+8. downloads the report and verifies the full synthetic IBAN is absent
+9. recursively removes the randomized test folder
+
+Expected additional properties:
+
+```json
+{
+  "app_access_ok": true,
+  "household_cleanup_ok": true,
+  "household_test_ok": true,
+  "root_share_count": 0,
+  "search_provider_count": 1,
+  "shares_ok": true,
+  "v020_test_requested": true,
+  "visible_app_count": 1
+}
+```
+
+Counts vary by account and installed Nextcloud apps. Boolean acceptance fields must be `true`,
+`failed_stages` must remain empty and no `.bridge-v020-smoke-*` folder may remain.
+
 ## Acceptance criteria
 
 The Files/MCP milestone is accepted only when:
@@ -95,5 +138,7 @@ The Files/MCP milestone is accepted only when:
 - the write smoke test completes and cleans up
 - no secret appears in output/logs
 - an installed Context Agent, if present, can be discovered through its MCP endpoint without invoking a native tool
+- when `--v020-test` is requested, app inventory, root-bound shares, household review, duplicate protection and cleanup all succeed
 
-Only after these checks should the project move on to shares/search, public MCP authentication or CalDAV/CardDAV functionality.
+Only after these checks should the project move on to OCR/vision, CalDAV/CardDAV or public plugin
+deployment work.

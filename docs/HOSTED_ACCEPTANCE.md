@@ -1,7 +1,8 @@
 # Hosted multi-user acceptance test
 
 This acceptance test is required before operating the bridge as a public multi-tenant service. It
-is intentionally separate from the local WebDAV/OCS live diagnostic used for `v0.1.0`.
+is intentionally separate from the local WebDAV/OCS/household live diagnostics used for source
+releases.
 
 ## Required environment
 
@@ -26,6 +27,12 @@ is intentionally separate from the local WebDAV/OCS live diagnostic used for `v0
 8. Repeat disconnect with simulated Nextcloud failure and confirm local deletion still succeeds.
 9. Inspect logs and traces to confirm they contain no tokens, app passwords or file contents.
 10. Run rate-limit, retention/deletion and egress-policy failure tests before public exposure.
+11. Configure one household profile per tenant and verify profile IDs, invoice paths and reports
+    return not-found behavior across tenants.
+12. Verify an attempted invoice path escape makes no provider request and duplicate reports cannot
+    overwrite an existing hash.
+13. Run the reviewer-ready positive and negative cases from `docs/PLUGIN_SUBMISSION.md` through both
+    ChatGPT and Codex.
 
 Passing the local `nextcloud-chatgpt-diagnose --write-test` command does not substitute for this
 hosted acceptance test because direct app-password configuration bypasses OAuth and Login Flow.

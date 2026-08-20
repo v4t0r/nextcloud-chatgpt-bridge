@@ -6,6 +6,20 @@ from pydantic import AnyHttpUrl, Field, SecretStr, field_validator, model_valida
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def normalize_relative_path(value: str, *, field_name: str = "Path") -> str:
+    """Normalize one non-root path while keeping it inside the configured account root."""
+    raw = value.strip().replace("\\", "/")
+    if not raw:
+        raise ValueError(f"{field_name} must not be empty")
+    candidate = PurePosixPath(raw)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise ValueError(f"{field_name} must stay inside the configured Nextcloud root")
+    normalized = str(candidate)
+    if normalized in {"", "."}:
+        raise ValueError(f"{field_name} must not resolve to the configured root")
+    return normalized
+
+
 def normalize_root_path(value: str) -> str:
     """Normalize and enforce the bridge's least-privilege Nextcloud root boundary."""
     value = value.strip()

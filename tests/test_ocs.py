@@ -78,3 +78,92 @@ def test_delete_app_password_uses_authenticated_ocs_endpoint():
         client.delete_app_password()
 
     assert seen == ["DELETE"]
+
+
+def test_user_app_search_and_share_metadata_are_sanitized():
+    def ocs(data):
+        return {
+            "ocs": {
+                "meta": {"status": "ok", "statuscode": 100, "message": "OK"},
+                "data": data,
+            }
+        }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/ocs/v2.php/core/navigation/apps":
+            return httpx.Response(
+                200,
+                json=ocs(
+                    [
+                        {"id": "files", "name": "Files\nInjected"},
+                        {"id": "bad/id", "name": "Bad"},
+                    ]
+                ),
+                request=request,
+            )
+        if path == "/ocs/v2.php/search/providers":
+            return httpx.Response(
+                200,
+                json=ocs([{"id": "files", "name": "Files"}]),
+                request=request,
+            )
+        if path == "/ocs/v2.php/search/providers/files/search":
+            assert request.url.params["term"] == "invoice"
+            return httpx.Response(
+                200,
+                json=ocs(
+                    {
+                        "entries": [
+                            {
+                                "title": "Invoice.pdf",
+                                "subline": "Files",
+                                "resourceUrl": "https://cloud.example.com/index.php/f/42?secret=x",
+                            },
+                            {
+                                "title": "External",
+                                "resourceUrl": "https://evil.example/file",
+                            },
+                        ],
+                        "cursor": 4,
+                    }
+                ),
+                request=request,
+            )
+        if path == "/ocs/v2.php/apps/files_sharing/api/v1/shares":
+            return httpx.Response(
+                200,
+                json=ocs(
+                    [
+                        {
+                            "id": "7",
+                            "share_type": 0,
+                            "item_type": "file",
+                            "path": "/ChatGPT/invoice.pdf",
+                            "permissions": 1,
+                            "share_with_displayname": "Household Member",
+                            "expiration": "2026-09-01 00:00:00",
+                            "token": "must-not-leak",
+                            "url": "https://cloud.example.com/s/token",
+                        }
+                    ]
+                ),
+                request=request,
+            )
+        raise AssertionError(path)
+
+    with OCSClient(settings(), transport=httpx.MockTransport(handler)) as client:
+        apps = client.get_navigation_apps()
+        providers = client.get_search_providers()
+        results, cursor = client.search("files", "invoice")
+        shares = client.list_shares(path="/ChatGPT", include_subfiles=True)
+
+    assert apps[0].app_id == "files"
+    assert apps[0].display_name == "Files Injected"
+    assert len(apps) == 1
+    assert providers[0].provider_id == "files"
+    assert results[0].resource_path == "/index.php/f/42"
+    assert results[1].resource_path is None
+    assert cursor == 4
+    assert shares[0].path == "/ChatGPT/invoice.pdf"
+    assert "must-not-leak" not in repr(shares[0])

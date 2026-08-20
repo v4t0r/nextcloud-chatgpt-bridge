@@ -5,15 +5,17 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import SecretStr, ValidationError
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from nextcloud_chatgpt_bridge.connections.models import ConnectionRecord, PendingLoginRecord
+from nextcloud_chatgpt_bridge.household.models import HouseholdProfileRecord
 from nextcloud_chatgpt_bridge.persistence import (
     AesGcmKeyring,
     Base,
     CredentialStoreError,
     DatabaseConnectionStore,
+    DatabaseHouseholdProfileStore,
     EncryptedDatabaseCredentialStore,
     HostedStorageConfig,
     SecretRow,
@@ -27,6 +29,13 @@ def make_sessions() -> sessionmaker[Session]:
     # SQLite is deliberately used only as an isolated unit-test backend for SQLAlchemy mappings.
     # HostedStorageConfig itself refuses SQLite and production requires PostgreSQL.
     engine = create_engine("sqlite+pysqlite:///:memory:")
+
+    @event.listens_for(engine, "connect")
+    def enable_sqlite_foreign_keys(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)
 
@@ -61,6 +70,19 @@ def connection(owner: str = TENANT_A) -> ConnectionRecord:
     )
 
 
+def household(owner: str = TENANT_A) -> HouseholdProfileRecord:
+    return HouseholdProfileRecord(
+        profile_id="hh_12345678901234567890",
+        tenant_id=owner,
+        connection_id="nc_12345678901234567890",
+        display_name="Household",
+        invoice_inbox_path="Household/Invoices/Inbox",
+        invoice_archive_path="Household/Invoices/Archive",
+        review_report_path="Household/Invoices/Reviews",
+        default_currency="EUR",
+    )
+
+
 def test_database_store_applies_owner_predicate_to_pending_and_connections():
     sessions = make_sessions()
     store = DatabaseConnectionStore(sessions)
@@ -87,6 +109,32 @@ def test_database_store_refuses_id_collision_across_tenants():
 
     with pytest.raises(RuntimeError, match="collision"):
         store.put_connection(connection(TENANT_B))
+
+
+def test_database_household_store_applies_tenant_predicates_and_connection_uniqueness():
+    sessions = make_sessions()
+    connections = DatabaseConnectionStore(sessions)
+    store = DatabaseHouseholdProfileStore(sessions)
+    connections.put_connection(connection())
+    store.put_profile(household())
+
+    assert store.get_profile("hh_12345678901234567890", TENANT_A) is not None
+    assert store.get_profile("hh_12345678901234567890", TENANT_B) is None
+    assert store.get_profile_for_connection("nc_12345678901234567890", TENANT_A) is not None
+    assert tuple(store.list_profiles(TENANT_B)) == ()
+
+    conflicting = household().model_copy(update={"profile_id": "hh_abcdefghijklmnop"})
+    with pytest.raises(RuntimeError, match="already exists"):
+        store.put_profile(conflicting)
+
+    with pytest.raises(RuntimeError, match="Owned Nextcloud connection"):
+        store.put_profile(household(TENANT_B))
+
+    store.delete_profile("hh_12345678901234567890", TENANT_B)
+    assert store.get_profile("hh_12345678901234567890", TENANT_A) is not None
+
+    connections.delete_connection("nc_12345678901234567890", TENANT_A)
+    assert store.get_profile("hh_12345678901234567890", TENANT_A) is None
 
 
 def test_encrypted_secret_store_never_persists_plaintext_and_round_trips():

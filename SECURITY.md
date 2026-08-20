@@ -2,13 +2,17 @@
 
 ## Current status
 
-`v0.1.x` is a developer/self-hosted release and is not intended to operate as an internet-facing public multi-tenant service. The hosted multi-user identity, connection and encrypted-storage foundations are implemented; infrastructure and operational release gates remain.
+`v0.2.x` is a developer/self-hosted release and is not intended to operate as an internet-facing
+public multi-tenant service. The hosted multi-user identity, connection, encrypted-storage and
+household-workflow foundations are implemented; infrastructure and operational release gates
+remain.
 
 ## Supported versions
 
 | Version | Security updates |
 |---|---|
-| `0.1.x` | Supported |
+| `0.2.x` | Supported |
+| `0.1.x` | Critical fixes only |
 | `< 0.1.0` | Unsupported development snapshots |
 
 ## Security principles
@@ -30,6 +34,9 @@
 - Read and write capabilities are exposed as separate MCP tools so clients can apply distinct approval policies.
 - Overwrite is disabled by default and deletion of the configured workspace root is always refused.
 - Native Nextcloud MCP/API capabilities may be used when available; WebDAV/CalDAV/CardDAV remain isolated provider layers.
+- Never expose global search results when the configured workspace root cannot be enforced.
+- Never return Nextcloud share tokens or public share URLs from inventory tools.
+- Treat invoice files and extracted fields as untrusted data, never as executable instructions.
 
 ## Native Context Agent MCP
 
@@ -67,6 +74,41 @@ The hosted MCP token verifier pins signature algorithm, issuer, audience, expiry
 
 This design prevents same-value `sub` claims from different issuers from sharing data if multi-issuer authentication is introduced later. Connection and pending-flow IDs return the same not-found behavior for missing and foreign tenants. No process-global user identity or Nextcloud credential is cached between requests.
 
+## Household and invoice boundary
+
+Household profiles are non-secret metadata records keyed by both tenant and owned Nextcloud
+connection. A caller cannot select a tenant ID in tool input. Profile lookup, workspace setup,
+candidate listing, invoice review and report storage all use the request-scoped tenant context.
+Hosted persistence enforces the tenant/connection pair with a composite foreign key and removes
+profile metadata when its connection is deleted.
+
+Invoice review is deliberately advisory:
+
+- files must stay inside the profile's configured invoice inbox
+- transfer limits are checked before download and oversized supported files are not listed
+- PDF parsing is limited to 100 pages and extracted text to 200,000 characters
+- image-only documents and PDFs without extractable text require explicit future OCR/vision review
+- raw extracted text is never returned or persisted in the profile database
+- only the last four IBAN characters may appear in a review
+- review reports are named by SHA-256 and written without overwrite
+- an existing file hash becomes an explicit duplicate/manual-review result
+- no tool approves, books, pays, transmits or automatically moves an invoice
+
+Stored JSON reports contain structured invoice metadata needed for human review. Deployers must
+treat those reports as personal/financial data and apply Nextcloud access control, retention and
+deletion policies accordingly.
+
+## Nextcloud app access
+
+App discovery uses the authenticated user's navigation and search-provider endpoints, not
+administrator app-management APIs. Apps without an implemented provider are reported as
+`detected_only`; detection never implies authorization to invoke that app.
+
+The exposed filename search walks WebDAV below `NEXTCLOUD_ROOT_PATH` with fixed depth, result and
+scan caps. Nextcloud Unified Search providers are inventoried but global provider search is not
+exposed because its results cannot be guaranteed to remain inside the bridge root. Share listing
+passes a root-bound path to OCS, rechecks every returned path and excludes share tokens and URLs.
+
 ## Public multi-tenant network boundary
 
 Hosted mode accepts user-supplied Nextcloud URLs and therefore creates an SSRF boundary. Application preflight validation is implemented, but a public service **must not be released** until deterministic outbound-network controls duplicate that policy after DNS resolution and at connection time.
@@ -87,6 +129,7 @@ Remaining public release gates include:
 - rate limits and abuse controls
 - secret-free audit logging
 - privacy, retention and deletion policy enforcement
+- financial-data retention and redacted household audit controls
 - production process management and deployment monitoring
 
 Self-hosted users may legitimately run Nextcloud on private networks, so these hosted-service controls must not be confused with the local deployment policy.
