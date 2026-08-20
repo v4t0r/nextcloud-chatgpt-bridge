@@ -156,7 +156,9 @@ class WebDAVClient:
         for response in root.findall(f"{{{DAV}}}response"):
             href = response.findtext(f"{{{DAV}}}href") or ""
             href_path = unquote(urlsplit(href).path).rstrip("/")
-            rel = href_path[len(base_path) :].lstrip("/") if href_path.startswith(base_path) else ""
+            if href_path != base_path and not href_path.startswith(f"{base_path}/"):
+                continue
+            rel = href_path[len(base_path) :].lstrip("/")
 
             prop = None
             for propstat in response.findall(f"{{{DAV}}}propstat"):
