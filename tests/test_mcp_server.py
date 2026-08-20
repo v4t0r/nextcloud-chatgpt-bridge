@@ -7,7 +7,7 @@ from mcp import Client
 
 import nextcloud_chatgpt_bridge.server as server
 from nextcloud_chatgpt_bridge.config import Settings
-from nextcloud_chatgpt_bridge.models import FileInfo
+from nextcloud_chatgpt_bridge.models import FileInfo, ShareInfo
 
 pytestmark = pytest.mark.anyio
 
@@ -110,7 +110,10 @@ async def test_mcp_lists_file_and_discovery_tools_with_risk_annotations(monkeypa
     assert {
         "get_nextcloud_capabilities",
         "probe_native_nextcloud_mcp",
+        "get_nextcloud_app_accesses",
         "list_files",
+        "search_files",
+        "list_nextcloud_shares",
         "get_file_info",
         "read_text_file",
         "download_file_base64",
@@ -123,6 +126,8 @@ async def test_mcp_lists_file_and_discovery_tools_with_risk_annotations(monkeypa
     assert tools["get_nextcloud_capabilities"].annotations.read_only_hint is True
     assert tools["probe_native_nextcloud_mcp"].annotations.read_only_hint is True
     assert tools["list_files"].annotations.read_only_hint is True
+    assert tools["search_files"].annotations.read_only_hint is True
+    assert tools["list_nextcloud_shares"].annotations.open_world_hint is False
     assert tools["delete_file"].annotations.destructive_hint is True
     assert tools["create_folder"].annotations.destructive_hint is False
 
@@ -211,3 +216,50 @@ async def test_mcp_delete_root_is_a_tool_error(monkeypatch):
 
     assert result.is_error is True
     assert "refusing to delete" in result.content[0].text.lower()
+
+
+async def test_workspace_search_is_name_only_and_bounded(monkeypatch):
+    install_fake(monkeypatch)
+
+    async with Client(server.mcp) as client:
+        result = await client.call_tool("search_files", {"query": "notes"})
+
+    assert result.is_error is False
+    assert result.structured_content["entries"][0]["path"] == "notes.txt"
+    assert result.structured_content["scanned_entries"] == 1
+
+
+async def test_share_inventory_omits_internal_ids_and_tokens(monkeypatch):
+    class FakeOCSClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return None
+
+        def list_shares(self, *, path, include_subfiles=False):
+            assert path == "/ChatGPT"
+            assert include_subfiles is True
+            return [
+                ShareInfo(
+                    share_id="internal-share-id",
+                    share_type=0,
+                    item_type="file",
+                    path="/ChatGPT/Documents/shared.txt",
+                    permissions=1,
+                    shared_with="Demo User",
+                    expiration=None,
+                )
+            ]
+
+    install_fake(monkeypatch)
+    monkeypatch.setattr(server, "_new_ocs_client", FakeOCSClient)
+
+    async with Client(server.mcp) as client:
+        result = await client.call_tool("list_nextcloud_shares", {})
+
+    assert result.is_error is False
+    share = result.structured_content["shares"][0]
+    assert share["path"] == "Documents/shared.txt"
+    assert "share_id" not in share
+    assert "token" not in str(share).lower()

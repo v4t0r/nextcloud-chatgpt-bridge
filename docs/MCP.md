@@ -43,7 +43,7 @@ Hosted composition uses:
 - `BridgeSessionContext` derived fresh from the verified MCP access token
 - `DatabaseConnectionStore` for tenant-scoped connection metadata
 - `EncryptedDatabaseCredentialStore` for tenant-bound encrypted app passwords
-- packaged `nextcloud_chatgpt_bridge/migrations/0001_hosted_storage.sql` for the initial PostgreSQL schema (`nextcloud-chatgpt-schema` prints it)
+- packaged versioned PostgreSQL migrations for connection and household metadata (`nextcloud-chatgpt-schema` prints them in order)
 
 The library foundation does not replace deployment controls. Public hosting still requires TLS/proxy hardening, egress enforcement, rate limits, monitoring and privacy/retention operations.
 
@@ -52,13 +52,22 @@ The library foundation does not replace deployment controls. Public hosting stil
 ### Discovery / read-only
 
 - `get_nextcloud_capabilities`
+- `get_nextcloud_app_accesses`
 - `probe_native_nextcloud_mcp`
 - `list_files`
+- `search_files`
+- `list_nextcloud_shares`
 - `get_file_info`
 - `read_text_file`
 - `download_file_base64`
 
 `get_nextcloud_capabilities` uses the authenticated OCS capabilities endpoint to inspect server/app hints. `probe_native_nextcloud_mcp` connects to Nextcloud Context Agent's documented MCP endpoint, authenticates with the app password as a Bearer token, and calls only MCP discovery/listing. It never invokes a native Nextcloud tool.
+
+`get_nextcloud_app_accesses` inventories only apps visible to the authenticated user and reports
+unimplemented apps as `detected_only`. `search_files` recursively matches filenames through
+WebDAV and cannot cross the configured root. Unified Search providers are listed for planning but
+their global search endpoint is not exposed. `list_nextcloud_shares` returns root-bound metadata
+without tokens or public URLs.
 
 ### Write / modify
 
@@ -75,6 +84,19 @@ The library foundation does not replace deployment controls. Public hosting stil
 - `list_nextcloud_connections` returns credential-free metadata
 - `set_nextcloud_root` updates the bridge-enforced workspace boundary
 - `disconnect_nextcloud` returns `disconnected` after local cleanup and reports remote revocation separately
+
+### Hosted household workflow
+
+- `configure_household_account` creates or updates non-secret profile paths for an owned connection
+- `list_household_accounts` lists only profiles in the authenticated tenant
+- `prepare_household_workspace` idempotently creates missing inbox/archive/review folders
+- `list_household_invoices` lists bounded supported files directly inside the configured inbox
+- `review_household_invoice` returns structured local checks without changing the invoice
+- `save_household_invoice_review` writes one immutable redacted JSON report per file hash
+
+The household service is optional hosted composition. Its tools are registered only when a
+tenant-scoped `HouseholdService` is supplied. Review is a human decision aid: no household tool
+approves, books, pays, transmits or automatically archives an invoice.
 
 MCP tool annotations identify read-only and destructive operations for compatible hosts. These annotations are UX hints only; deterministic safety is enforced in the provider and configuration layers.
 
@@ -114,6 +136,11 @@ The base64 tools are intended as a generic interoperability fallback for small f
 - remote file contents and remote MCP metadata are treated as untrusted data
 - native MCP bearer-token requests do not follow redirects
 - native MCP probing invokes no remote tool
+- global Unified Search results are not exposed without a root guarantee
+- share tokens and public URLs are omitted from MCP results
+- invoice parsing is bounded and raw extracted text is not returned
+- complete IBAN values are replaced by their last four characters
+- duplicate report hashes cannot overwrite an existing review
 
 ## Hosted-service warning
 

@@ -17,10 +17,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import (
     Boolean,
     DateTime,
+    ForeignKeyConstraint,
     Index,
     LargeBinary,
     String,
     Text,
+    UniqueConstraint,
     create_engine,
     delete,
     select,
@@ -29,6 +31,7 @@ from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from nextcloud_chatgpt_bridge.connections.models import ConnectionRecord, PendingLoginRecord
+from nextcloud_chatgpt_bridge.household.models import HouseholdProfileRecord
 
 _SECRET_AAD_VERSION = b"nextcloud-chatgpt-bridge-secret-v1"
 _MAX_SECRET_BYTES = 16 * 1024
@@ -75,7 +78,14 @@ class ConnectionRow(Base):
     verify_tls: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    __table_args__ = (Index("ix_nextcloud_connection_tenant", "tenant_id"),)
+    __table_args__ = (
+        Index("ix_nextcloud_connection_tenant", "tenant_id"),
+        UniqueConstraint(
+            "tenant_id",
+            "connection_id",
+            name="uq_nextcloud_connection_tenant_connection",
+        ),
+    )
 
 
 class SecretRow(Base):
@@ -89,6 +99,37 @@ class SecretRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (Index("ix_bridge_secret_tenant", "tenant_id"),)
+
+
+class HouseholdProfileRow(Base):
+    __tablename__ = "household_profiles"
+
+    profile_id: Mapped[str] = mapped_column(String(256), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    connection_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    invoice_inbox_path: Mapped[str] = mapped_column(Text, nullable=False)
+    invoice_archive_path: Mapped[str] = mapped_column(Text, nullable=False)
+    review_report_path: Mapped[str] = mapped_column(Text, nullable=False)
+    default_currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("ix_household_profile_tenant", "tenant_id"),
+        Index(
+            "uq_household_profile_connection",
+            "tenant_id",
+            "connection_id",
+            unique=True,
+        ),
+        ForeignKeyConstraint(
+            ("tenant_id", "connection_id"),
+            ("nextcloud_connections.tenant_id", "nextcloud_connections.connection_id"),
+            name="fk_household_profile_owned_connection",
+            ondelete="CASCADE",
+        ),
+    )
 
 
 class HostedStorageConfig(BaseSettings):
@@ -364,6 +405,107 @@ class EncryptedDatabaseCredentialStore:
         )
 
 
+class DatabaseHouseholdProfileStore:
+    """Tenant-scoped durable household metadata store; never stores invoice contents."""
+
+    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+        self.session_factory = session_factory
+
+    def put_profile(self, record: HouseholdProfileRecord) -> None:
+        with self.session_factory() as session:
+            owned_connection = session.scalar(
+                select(ConnectionRow.connection_id).where(
+                    ConnectionRow.connection_id == record.connection_id,
+                    ConnectionRow.tenant_id == record.tenant_id,
+                )
+            )
+            if owned_connection is None:
+                raise PersistenceError("Owned Nextcloud connection was not found")
+            existing = session.get(HouseholdProfileRow, record.profile_id)
+            if existing is not None and existing.tenant_id != record.tenant_id:
+                raise PersistenceError("Household profile ID collision")
+            connection_owner = session.scalar(
+                select(HouseholdProfileRow).where(
+                    HouseholdProfileRow.tenant_id == record.tenant_id,
+                    HouseholdProfileRow.connection_id == record.connection_id,
+                    HouseholdProfileRow.profile_id != record.profile_id,
+                )
+            )
+            if connection_owner is not None:
+                raise PersistenceError("A household profile already exists for this connection")
+            row = existing or HouseholdProfileRow(profile_id=record.profile_id)
+            row.tenant_id = record.tenant_id
+            row.connection_id = record.connection_id
+            row.display_name = record.display_name
+            row.invoice_inbox_path = record.invoice_inbox_path
+            row.invoice_archive_path = record.invoice_archive_path
+            row.review_report_path = record.review_report_path
+            row.default_currency = record.default_currency
+            row.created_at = record.created_at
+            row.updated_at = record.updated_at
+            if existing is None:
+                session.add(row)
+            session.commit()
+
+    def get_profile(self, profile_id: str, tenant_id: str) -> HouseholdProfileRecord | None:
+        with self.session_factory() as session:
+            row = session.scalar(
+                select(HouseholdProfileRow).where(
+                    HouseholdProfileRow.profile_id == profile_id,
+                    HouseholdProfileRow.tenant_id == tenant_id,
+                )
+            )
+            return self._record(row) if row is not None else None
+
+    def get_profile_for_connection(
+        self,
+        connection_id: str,
+        tenant_id: str,
+    ) -> HouseholdProfileRecord | None:
+        with self.session_factory() as session:
+            row = session.scalar(
+                select(HouseholdProfileRow).where(
+                    HouseholdProfileRow.connection_id == connection_id,
+                    HouseholdProfileRow.tenant_id == tenant_id,
+                )
+            )
+            return self._record(row) if row is not None else None
+
+    def list_profiles(self, tenant_id: str) -> Iterable[HouseholdProfileRecord]:
+        with self.session_factory() as session:
+            rows = session.scalars(
+                select(HouseholdProfileRow)
+                .where(HouseholdProfileRow.tenant_id == tenant_id)
+                .order_by(HouseholdProfileRow.created_at.asc(), HouseholdProfileRow.profile_id.asc())
+            ).all()
+            return tuple(self._record(row) for row in rows)
+
+    def delete_profile(self, profile_id: str, tenant_id: str) -> None:
+        with self.session_factory() as session:
+            session.execute(
+                delete(HouseholdProfileRow).where(
+                    HouseholdProfileRow.profile_id == profile_id,
+                    HouseholdProfileRow.tenant_id == tenant_id,
+                )
+            )
+            session.commit()
+
+    @staticmethod
+    def _record(row: HouseholdProfileRow) -> HouseholdProfileRecord:
+        return HouseholdProfileRecord(
+            profile_id=row.profile_id,
+            tenant_id=row.tenant_id,
+            connection_id=row.connection_id,
+            display_name=row.display_name,
+            invoice_inbox_path=row.invoice_inbox_path,
+            invoice_archive_path=row.invoice_archive_path,
+            review_report_path=row.review_report_path,
+            default_currency=row.default_currency,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+
+
 def create_hosted_engine(config: HostedStorageConfig) -> Engine:
     """Create production PostgreSQL engine. Schema migrations are managed separately."""
     return create_engine(
@@ -388,4 +530,28 @@ def build_hosted_stores(
         engine,
         DatabaseConnectionStore(sessions),
         EncryptedDatabaseCredentialStore(sessions, keyring),
+    )
+
+
+@dataclass(slots=True, frozen=True)
+class HostedStoreBundle:
+    engine: Engine
+    connection_store: DatabaseConnectionStore
+    credential_store: EncryptedDatabaseCredentialStore
+    household_store: DatabaseHouseholdProfileStore
+
+
+def build_hosted_store_bundle(config: HostedStorageConfig) -> HostedStoreBundle:
+    """Compose every v0.2 hosted store while preserving the v0.1 tuple helper."""
+    engine = create_hosted_engine(config)
+    sessions = sessionmaker(bind=engine, expire_on_commit=False)
+    keyring = AesGcmKeyring.from_json(
+        config.secret_active_key_id,
+        config.secret_keys_json,
+    )
+    return HostedStoreBundle(
+        engine=engine,
+        connection_store=DatabaseConnectionStore(sessions),
+        credential_store=EncryptedDatabaseCredentialStore(sessions, keyring),
+        household_store=DatabaseHouseholdProfileStore(sessions),
     )

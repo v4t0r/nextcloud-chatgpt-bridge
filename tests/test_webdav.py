@@ -1,3 +1,5 @@
+from urllib.parse import unquote
+
 import httpx
 import pytest
 
@@ -93,4 +95,40 @@ def test_upload_is_bounded_before_network_request():
     ) as client:
         with pytest.raises(ValueError, match="transfer limit"):
             client.upload_file("large.bin", b"x" * 1025)
+
+
+def test_exists_and_ensure_folder_handle_missing_segments_without_overwrite():
+    existing = {""}
+
+    def multistatus(relative: str) -> bytes:
+        suffix = f"/{relative}" if relative else ""
+        return f'''<?xml version="1.0" encoding="utf-8"?>
+<d:multistatus xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">
+  <d:response><d:href>/remote.php/dav/files/bridge-user/ChatGPT{suffix}</d:href>
+  <d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype><oc:size>0</oc:size></d:prop>
+  <d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>
+</d:multistatus>'''.encode()
+
+    def relative(request: httpx.Request) -> str:
+        marker = "/remote.php/dav/files/bridge-user/ChatGPT"
+        return unquote(request.url.path.split(marker, 1)[1]).lstrip("/")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = relative(request)
+        if request.method == "PROPFIND":
+            if path not in existing:
+                return httpx.Response(404, request=request)
+            return httpx.Response(207, content=multistatus(path), request=request)
+        if request.method == "MKCOL":
+            existing.add(path)
+            return httpx.Response(201, request=request)
+        raise AssertionError(request.method)
+
+    with WebDAVClient(settings(), transport=httpx.MockTransport(handler)) as client:
+        assert client.exists("Household") is False
+        folder = client.ensure_folder("Household/Invoices/Inbox")
+        assert client.exists("Household/Invoices/Inbox") is True
+
+    assert folder.is_dir is True
+    assert existing == {"", "Household", "Household/Invoices", "Household/Invoices/Inbox"}
 

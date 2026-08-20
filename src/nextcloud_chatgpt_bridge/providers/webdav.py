@@ -114,6 +114,47 @@ class WebDAVClient:
             raise WebDAVError("Nextcloud returned no metadata for the requested path")
         return entries[0]
 
+    def exists(self, path: str) -> bool:
+        response = self.client.request(
+            "PROPFIND",
+            self._url(path),
+            headers={"Depth": "0", "Content-Type": "application/xml; charset=utf-8"},
+            content=_PROPFIND_BODY,
+        )
+        if response.status_code == 404:
+            return False
+        self._raise_for_status(response, {207})
+        return True
+
+    def ensure_folder(self, path: str) -> FileInfo:
+        """Create missing path segments without replacing existing files or folders."""
+        normalized = self._normalize_relative(path)
+        if not normalized:
+            raise ValueError("Folder path must not be the configured Nextcloud root")
+        current = ""
+        result: FileInfo | None = None
+        for part in PurePosixPath(normalized).parts:
+            current = f"{current}/{part}".lstrip("/")
+            response = self.client.request(
+                "PROPFIND",
+                self._url(current),
+                headers={"Depth": "0", "Content-Type": "application/xml; charset=utf-8"},
+                content=_PROPFIND_BODY,
+            )
+            if response.status_code == 404:
+                created = self.client.request("MKCOL", self._url(current))
+                self._raise_for_status(created, {201})
+                result = self.stat(current)
+            else:
+                self._raise_for_status(response, {207})
+                entries = self._parse_multistatus(response.content)
+                if not entries or not entries[0].is_dir:
+                    raise WebDAVError("Nextcloud workspace path contains a non-folder entry")
+                result = entries[0]
+        if result is None:
+            raise WebDAVError("Nextcloud workspace folder could not be resolved")
+        return result
+
     def download_file(self, path: str, *, max_bytes: int | None = None) -> bytes:
         """Stream a file with a hard byte cap to avoid TOCTOU/unbounded-memory downloads."""
         limit = self.settings.max_transfer_bytes if max_bytes is None else max_bytes

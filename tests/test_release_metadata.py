@@ -21,3 +21,9 @@ def test_release_license_is_declared_and_present():
 
     assert metadata["project"]["license"] == "Apache-2.0"
     assert (project_root / "LICENSE").is_file()
+
+
+def test_current_release_notes_exist():
+    project_root = Path(__file__).resolve().parents[1]
+
+    assert (project_root / "docs" / "releases" / f"v{__version__}.md").is_file()

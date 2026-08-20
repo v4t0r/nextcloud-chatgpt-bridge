@@ -46,7 +46,7 @@ The user's actual Nextcloud password is never requested by or returned to the br
 
 A connection record contains a pseudonymous `tenant_id`, not the raw OIDC subject. The tenant ID is derived from both issuer and subject, so identical subject strings from different identity providers cannot collide. Lookup intentionally returns the same not-found result for missing and foreign connection IDs. This avoids leaking whether another user's connection exists.
 
-Every metadata query includes the tenant predicate. Every credential-store operation requires both `tenant_id` and `credential_ref`. The encrypted store also includes the tenant ID in AES-GCM authenticated data, preventing a database row or ciphertext from being transplanted into another tenant context.
+Every metadata query includes the tenant predicate. Every credential-store operation requires both `tenant_id` and `credential_ref`. The encrypted store also includes the tenant ID in AES-GCM authenticated data, preventing a database row or ciphertext from being transplanted into another tenant context. Household profile queries likewise require the tenant predicate and bind each profile to an owned connection ID; profile IDs alone never authorize access.
 
 The first public version supports exactly one active Nextcloud connection per tenant for file operations. If zero are connected the operation fails. If more than one exists the operation also fails until explicit connection selection is implemented; the bridge never guesses.
 
@@ -93,7 +93,13 @@ Hosted composition must use `build_hosted_connection_service`, which constructs 
 
 ## Secret storage
 
-`InMemoryCredentialStore` and `InMemoryConnectionStore` exist only for tests/development. Hosted storage uses SQLAlchemy/PostgreSQL connection metadata plus `EncryptedDatabaseCredentialStore` with AES-256-GCM and bounded key rotation. The schema is packaged at `nextcloud_chatgpt_bridge/migrations/0001_hosted_storage.sql`, can be printed with `nextcloud-chatgpt-schema`, is verified before hosted startup, and is accompanied by cleanup for expired flows and old unreferenced encrypted secrets.
+`InMemoryCredentialStore`, `InMemoryConnectionStore` and `InMemoryHouseholdProfileStore` exist only for tests/development. Hosted storage uses SQLAlchemy/PostgreSQL connection metadata plus `EncryptedDatabaseCredentialStore` with AES-256-GCM and bounded key rotation. Migrations are packaged under `nextcloud_chatgpt_bridge/migrations`; `nextcloud-chatgpt-schema` prints all migrations in order, `--version 2` prints only the household migration, and hosted startup requires schema version 2. Cleanup covers expired flows and old unreferenced encrypted secrets.
+
+The household table stores display name, root-relative inbox/archive/report paths and default
+currency. It stores no Nextcloud credentials, invoice bytes, extracted text, review contents or
+payment instructions. A composite tenant/connection foreign key enforces ownership and cascades
+profile deletion when a connection is removed. Immutable review JSON remains in the caller's
+bounded Nextcloud workspace.
 
 Database URLs and encryption keys are deployment secrets. Plaintext app passwords must never be written to logs, prompts, GitHub, analytics or metadata tables. A managed KMS/HSM envelope-encryption boundary remains recommended for public production deployment.
 
@@ -106,3 +112,4 @@ Database URLs and encryption keys are deployment secrets. Plaintext app password
 - privacy/retention policy implementation
 - managed KMS/HSM integration or a documented equivalent deployment key-management policy
 - public domain, legal/support URLs and OpenAI domain verification
+- reviewer-ready universal MCP endpoint and positive/negative submission test account

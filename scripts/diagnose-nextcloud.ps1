@@ -9,7 +9,9 @@ param(
 
     [string]$RootPath = "/ChatGPT",
 
-    [switch]$WriteTest
+    [switch]$WriteTest,
+
+    [switch]$Version020Test
 )
 
 Set-StrictMode -Version Latest
@@ -32,6 +34,9 @@ try {
     $arguments = @("-m", "nextcloud_chatgpt_bridge.diagnostics")
     if ($WriteTest) {
         $arguments += "--write-test"
+    }
+    if ($Version020Test) {
+        $arguments += "--v020-test"
     }
 
     & python @arguments

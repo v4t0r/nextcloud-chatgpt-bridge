@@ -8,7 +8,7 @@ Provide a reusable multi-user connector that lets ChatGPT and Codex work with ea
 
 ## Current status
 
-`v0.1.0` is the first installable developer release. The project now has:
+`v0.2.0` is the household-workflow developer release. The project now has:
 
 - project bootstrap and CI configuration
 - validated runtime configuration
@@ -31,12 +31,28 @@ Provide a reusable multi-user connector that lets ChatGPT and Codex work with ea
 - encrypted PostgreSQL credential storage with tenant-bound AES-GCM authentication data
 - versioned database migration, startup schema verification and orphan-secret maintenance
 - multi-user isolation and hosted-storage tests
+- user-visible Nextcloud app and search-provider inventory without administrator APIs
+- root-bound recursive filename search and redacted read-only share inventory
+- tenant-scoped household profiles tied to owned Nextcloud connections
+- deterministic PDF, UTF-8 text and XML invoice extraction with strict processing limits
+- structured invoice checks and immutable, redacted SHA-256 review reports
+- PostgreSQL schema migration v2 for non-secret household profile metadata
 
-The local/self-hosted bridge and public-app backend foundation are implemented, but the hosted service is not production-ready. Infrastructure-enforced outbound network policy, rate limits, audit/privacy controls, deployment wiring and an end-to-end ChatGPT/Codex OAuth test remain public-service release gates.
+The local/self-hosted bridge and public-plugin backend foundation are implemented, but the hosted
+service is not production-ready. Infrastructure-enforced outbound network policy, rate limits,
+audit/privacy controls, deployment wiring and an end-to-end ChatGPT/Codex OAuth test remain
+public-service release gates.
 
-## v0.1.0 scope
+## v0.2.0 scope
 
-This release provides an installable local MCP bridge and the tested code foundation for a future public ChatGPT/Codex app. It does **not** publish or authorize a production multi-tenant hosted service. See [SECURITY.md](SECURITY.md) and [docs/HOSTED_ACCEPTANCE.md](docs/HOSTED_ACCEPTANCE.md).
+This release adds household-account configuration, conservative invoice review, scoped app
+inventory, root-bound file search and read-only share listing. Invoice review never approves,
+books, pays, transmits or automatically archives an invoice. Images and scanned PDFs require a
+future explicit OCR/vision adapter and remain in manual review.
+
+`v0.2.0` does **not** publish or authorize a production multi-tenant hosted service. See
+[SECURITY.md](SECURITY.md), [docs/HOUSEHOLD_ARCHITECTURE.md](docs/HOUSEHOLD_ARCHITECTURE.md) and
+[docs/HOSTED_ACCEPTANCE.md](docs/HOSTED_ACCEPTANCE.md).
 
 ## Planned architecture
 
@@ -55,6 +71,12 @@ ConnectionService
        |
        | per-request Nextcloud settings
        v
+HouseholdService / app-access boundary
+       |-- tenant-scoped profile metadata
+       |-- bounded invoice reviewer
+       `-- redacted immutable review reports
+       |
+       v
 Existing provider core
        |-- Native Nextcloud MCP / Context Agent
        |-- WebDAV provider (files)
@@ -68,8 +90,11 @@ Existing provider core
 Discovery / read-only:
 
 - `get_nextcloud_capabilities`
+- `get_nextcloud_app_accesses`
 - `probe_native_nextcloud_mcp`
 - `list_files`
+- `search_files`
+- `list_nextcloud_shares`
 - `get_file_info`
 - `read_text_file`
 - `download_file_base64`
@@ -90,7 +115,18 @@ Hosted account connection:
 - `set_nextcloud_root`
 - `disconnect_nextcloud`
 
-See [docs/MCP.md](docs/MCP.md) for core tools and [docs/AUTH_ARCHITECTURE.md](docs/AUTH_ARCHITECTURE.md) for public-app identity, connection and credential boundaries.
+Hosted household workflow:
+
+- `configure_household_account`
+- `list_household_accounts`
+- `prepare_household_workspace`
+- `list_household_invoices`
+- `review_household_invoice`
+- `save_household_invoice_review`
+
+See [docs/MCP.md](docs/MCP.md) for tools,
+[docs/AUTH_ARCHITECTURE.md](docs/AUTH_ARCHITECTURE.md) for identity and credential boundaries, and
+[docs/PLUGIN_SUBMISSION.md](docs/PLUGIN_SUBMISSION.md) for the public ChatGPT/Codex plugin gate.
 
 ## Security defaults
 
@@ -115,6 +151,13 @@ See [docs/MCP.md](docs/MCP.md) for core tools and [docs/AUTH_ARCHITECTURE.md](do
 - remote response bodies are not reflected into MCP error messages
 - native MCP probing invokes discovery only, never a remote native tool
 - native MCP bearer-token requests do not follow redirects
+- global Unified Search is inventory-only; exposed file search stays below the configured root
+- share responses omit tokens and public share URLs
+- household metadata is tenant-scoped and contains no invoice contents or credentials
+- invoice extraction is bounded by file size, page count and extracted-character limits
+- review responses omit raw extracted text and reveal only the last four IBAN characters
+- duplicate invoice content is detected through SHA-256 and cannot overwrite an existing report
+- invoice tools cannot approve, book, pay, transmit or automatically archive documents
 - local Streamable HTTP binds to `127.0.0.1` by default
 - hosted deployment still requires infrastructure egress controls, rate limits and operational hardening
 
@@ -135,6 +178,10 @@ ruff check .
 Install `.[hosted]` for PostgreSQL-backed connection metadata and encrypted credential storage. Hosted secrets and database URLs are deployment configuration and must never be committed.
 
 Release artifacts contain a wheel, source archive and `SHA256SUMS`. After installing the wheel, `nextcloud-chatgpt-schema` prints the packaged PostgreSQL migration for review/application by an operator.
+
+For a fresh hosted database, the command prints migrations 1 and 2 in order. To upgrade an
+existing v0.1 database, review and apply only `nextcloud-chatgpt-schema --version 2` before starting
+v0.2; hosted startup intentionally refuses any schema version other than 2.
 
 Copy `.env.example` to `.env` only for local testing and replace placeholders with a dedicated Nextcloud account/app password.
 
@@ -166,21 +213,25 @@ nextcloud-chatgpt-diagnose --write-test
 
 The write test creates one randomized temporary folder below `NEXTCLOUD_ROOT_PATH`, verifies create/upload/download/move, and then removes the folder. Diagnostics emit sanitized JSON and never print credentials or remote response bodies.
 
-The first live validation passed against Nextcloud 33.0.7 with OCS, WebDAV read/write and cleanup all successful. Native Context Agent MCP was not available, confirming the fallback design works in a real deployment. See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
+Live validation against Nextcloud 33.0.7 covers OCS, WebDAV read/write and cleanup. The v0.2
+acceptance adds app inventory, scoped share discovery and an isolated synthetic household invoice
+review. Native Context Agent MCP was not available, confirming the fallback design works in a real
+deployment. See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
 
 ## Roadmap
 
-1. project bootstrap and CI — implemented
-2. WebDAV files MVP — implemented and live-validated
-3. MCP tool layer — implemented
-4. native Nextcloud capability/MCP detection — implemented; fallback live-validated
-5. public multi-user connection/auth/storage foundation — implemented; deployment integration pending
-6. `v0.1.0` installable developer release — implemented
-7. infrastructure egress enforcement, rate limiting and audit/privacy controls
-8. end-to-end ChatGPT/Codex OAuth and account-connection validation
-9. search, shares, tags and versions
-10. CalDAV and CardDAV support
-11. security review, app submission and public hosted-service release
+1. bootstrap, WebDAV/OCS core and MCP tool layer — implemented and live-validated
+2. multi-user connection, identity and encrypted credential storage — implemented
+3. `v0.1.0` installable developer release — implemented
+4. root-bound search, read-only shares and user-visible app inventory — implemented in `v0.2.0`
+5. household profiles and conservative invoice review — implemented in `v0.2.0`
+6. optional OCR/vision and electronic-invoice improvements — planned for `v0.2.1`
+7. CalDAV/CardDAV and modular Nextcloud app adapters — planned for `v0.3.0`
+8. production hosting, OAuth acceptance and operational security gates — planned for `v0.3.x`
+9. OpenAI review and universal Plugins Directory publication — final public-release milestone
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for milestone boundaries and the planned separation between
+the provider-neutral bridge core and any optional OpenAI API/vision integration.
 
 ## License
 

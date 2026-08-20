@@ -44,6 +44,39 @@ class FakeConnectionService:
         raise AssertionError("not used")
 
 
+class FakeHouseholdService:
+    def configure_profile(self, *, context, connection_id: str, display_name: str, **kwargs):
+        from nextcloud_chatgpt_bridge.household.models import HouseholdProfileSummary
+
+        now = datetime.now(UTC)
+        return HouseholdProfileSummary(
+            profile_id="hh_1234567890123456",
+            connection_id=connection_id,
+            display_name=display_name,
+            invoice_inbox_path="Household/Invoices/Inbox",
+            invoice_archive_path="Household/Invoices/Archive",
+            review_report_path="Household/Invoices/Reviews",
+            default_currency="EUR",
+            created_at=now,
+            updated_at=now,
+        )
+
+    def list_profiles(self, **kwargs):
+        return []
+
+    def prepare_workspace(self, **kwargs):
+        raise AssertionError("not used")
+
+    def list_invoice_candidates(self, **kwargs):
+        return []
+
+    def review_invoice(self, **kwargs):
+        raise AssertionError("not used")
+
+    def save_invoice_review(self, **kwargs):
+        raise AssertionError("not used")
+
+
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
@@ -76,6 +109,7 @@ async def test_hosted_server_exposes_core_and_connection_tools(monkeypatch):
     mcp = hosted.create_hosted_mcp(
         connection_service=service,  # type: ignore[arg-type]
         auth_config=auth_config(),
+        household_service=FakeHouseholdService(),  # type: ignore[arg-type]
     )
 
     try:
@@ -84,6 +118,13 @@ async def test_hosted_server_exposes_core_and_connection_tools(monkeypatch):
             result = await client.call_tool(
                 "begin_nextcloud_connection",
                 {"base_url": "https://cloud.example.com", "root_path": "/ChatGPT"},
+            )
+            household = await client.call_tool(
+                "configure_household_account",
+                {
+                    "connection_id": "nc_1234567890123456",
+                    "display_name": "Our Household",
+                },
             )
 
         names = {tool.name for tool in listed.tools}
@@ -95,6 +136,12 @@ async def test_hosted_server_exposes_core_and_connection_tools(monkeypatch):
             "list_nextcloud_connections",
             "set_nextcloud_root",
             "disconnect_nextcloud",
+            "configure_household_account",
+            "list_household_accounts",
+            "prepare_household_workspace",
+            "list_household_invoices",
+            "review_household_invoice",
+            "save_household_invoice_review",
         } <= names
         assert result.is_error is False
         assert result.structured_content["flow_id"] == "flow_1234567890123456"
@@ -102,6 +149,8 @@ async def test_hosted_server_exposes_core_and_connection_tools(monkeypatch):
         assert service.started == [
             (session().tenant_id, "https://cloud.example.com", "/ChatGPT")
         ]
+        assert household.is_error is False
+        assert household.structured_content["profile_id"] == "hh_1234567890123456"
     finally:
         core.configure_settings_resolver(LocalSettingsResolver())
 

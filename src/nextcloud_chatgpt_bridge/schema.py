@@ -6,7 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from nextcloud_chatgpt_bridge.persistence import PersistenceError
 
-EXPECTED_SCHEMA_VERSION = 1
+EXPECTED_SCHEMA_VERSION = 2
 
 
 def verify_hosted_schema(engine: Engine) -> None:

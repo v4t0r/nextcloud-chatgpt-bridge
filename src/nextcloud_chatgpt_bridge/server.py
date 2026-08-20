@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+from collections import deque
+from pathlib import PurePosixPath
 from typing import Literal
 
 from mcp.server import MCPServer
@@ -10,8 +12,9 @@ from mcp.types import ToolAnnotations
 from pydantic import BaseModel
 
 from nextcloud_chatgpt_bridge import __version__
+from nextcloud_chatgpt_bridge.app_access import AppAccessReport, build_app_access_report
 from nextcloud_chatgpt_bridge.capabilities import CapabilityReport, build_capability_report
-from nextcloud_chatgpt_bridge.config import Settings
+from nextcloud_chatgpt_bridge.config import Settings, normalize_relative_path
 from nextcloud_chatgpt_bridge.models import FileInfo
 from nextcloud_chatgpt_bridge.providers.native_mcp import (
     NativeMCPError,
@@ -60,6 +63,28 @@ class OperationResult(BaseModel):
     ok: bool = True
     path: str
     message: str
+
+
+class FileSearchResult(BaseModel):
+    query: str
+    path: str
+    entries: list[FileEntry]
+    scanned_entries: int
+    truncated: bool
+
+
+class ShareEntry(BaseModel):
+    share_type: int | None
+    item_type: str | None
+    path: str | None
+    permissions: int | None
+    shared_with: str | None
+    expiration: str | None
+
+
+class ShareListResult(BaseModel):
+    path: str
+    shares: list[ShareEntry]
 
 
 class NativeMCPStatus(BaseModel):
@@ -150,6 +175,42 @@ def get_nextcloud_capabilities() -> CapabilityReport:
 
 
 @mcp.tool(
+    title="Inspect accessible Nextcloud apps",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        open_world_hint=False,
+    ),
+)
+def get_nextcloud_app_accesses() -> AppAccessReport:
+    """Inventory user-visible apps and safe bridge access levels without administrator APIs."""
+    try:
+        settings = _safe_settings()
+        warnings: list[str] = []
+        with _new_ocs_client() as client:
+            capability_data = client.get_capabilities()
+            try:
+                navigation_apps = client.get_navigation_apps()
+            except OCSError:
+                navigation_apps = []
+                warnings.append("User navigation app inventory is unavailable")
+            try:
+                search_providers = client.get_search_providers()
+            except OCSError:
+                search_providers = []
+                warnings.append("Unified search provider inventory is unavailable")
+        return build_app_access_report(
+            settings,
+            capability_data,
+            navigation_apps=navigation_apps,
+            search_providers=search_providers,
+            warnings=warnings,
+        )
+    except Exception as exc:
+        raise _translate_error(exc) from exc
+
+
+@mcp.tool(
     title="Probe native Nextcloud MCP",
     annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False),
 )
@@ -185,6 +246,107 @@ def list_files(path: str = "") -> FileListResult:
         with _new_client() as client:
             entries = client.list_files(path)
         return FileListResult(path=path, entries=[_entry(item) for item in entries])
+    except Exception as exc:
+        raise _translate_error(exc) from exc
+
+
+@mcp.tool(
+    title="Search files inside the Nextcloud workspace",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        open_world_hint=False,
+    ),
+)
+def search_files(
+    query: str,
+    path: str = "",
+    max_results: int = 20,
+    max_depth: int = 4,
+) -> FileSearchResult:
+    """Search names below one workspace folder without crossing the configured root."""
+    try:
+        normalized_query = query.strip().casefold()
+        if not normalized_query or len(normalized_query) > 256:
+            raise ValueError("Search query must contain between 1 and 256 characters")
+        if not 1 <= max_results <= 100:
+            raise ValueError("Search result limit must be between 1 and 100")
+        if not 0 <= max_depth <= 10:
+            raise ValueError("Search depth must be between 0 and 10")
+        start = "" if not path.strip() else normalize_relative_path(path, field_name="Search path")
+        queue: deque[tuple[str, int]] = deque([(start, 0)])
+        results: list[FileEntry] = []
+        scanned = 0
+        truncated = False
+        with _new_client() as client:
+            while queue:
+                folder, depth = queue.popleft()
+                for item in client.list_files(folder):
+                    scanned += 1
+                    if scanned > 2_000:
+                        truncated = True
+                        queue.clear()
+                        break
+                    if normalized_query in item.name.casefold():
+                        results.append(_entry(item))
+                        if len(results) >= max_results:
+                            truncated = True
+                            queue.clear()
+                            break
+                    if item.is_dir and depth < max_depth:
+                        queue.append((item.path, depth + 1))
+                if truncated and (scanned > 2_000 or len(results) >= max_results):
+                    break
+        return FileSearchResult(
+            query=query.strip(),
+            path=start,
+            entries=results,
+            scanned_entries=min(scanned, 2_000),
+            truncated=truncated,
+        )
+    except Exception as exc:
+        raise _translate_error(exc) from exc
+
+
+@mcp.tool(
+    title="List shares inside the Nextcloud workspace",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        open_world_hint=False,
+    ),
+)
+def list_nextcloud_shares(path: str = "", include_subfiles: bool = True) -> ShareListResult:
+    """List credential-free share metadata constrained to the configured workspace root."""
+    try:
+        settings = _safe_settings()
+        relative = "" if not path.strip() else normalize_relative_path(path, field_name="Share path")
+        root = settings.nextcloud_root_path.rstrip("/")
+        absolute_path = root if not relative else f"{root}/{relative}"
+        with _new_ocs_client() as client:
+            shares = client.list_shares(
+                path=absolute_path,
+                include_subfiles=include_subfiles,
+            )
+        entries: list[ShareEntry] = []
+        for share in shares:
+            shared_path = share.path
+            if shared_path is not None:
+                normalized = str(PurePosixPath(shared_path))
+                if normalized != root and not normalized.startswith(f"{root}/"):
+                    continue
+                shared_path = normalized[len(root) :].lstrip("/")
+            entries.append(
+                ShareEntry(
+                    share_type=share.share_type,
+                    item_type=share.item_type,
+                    path=shared_path,
+                    permissions=share.permissions,
+                    shared_with=share.shared_with,
+                    expiration=share.expiration,
+                )
+            )
+        return ShareListResult(path=relative, shares=entries)
     except Exception as exc:
         raise _translate_error(exc) from exc
 
