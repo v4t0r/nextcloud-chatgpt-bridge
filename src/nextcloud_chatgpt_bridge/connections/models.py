@@ -6,7 +6,7 @@ from pydantic import AnyHttpUrl, BaseModel, Field, SecretStr
 
 
 class LoginFlowChallenge(BaseModel):
-    """Internal Nextcloud Login Flow v2 challenge. Never expose the poll token to clients."""
+    """Ephemeral Nextcloud Login Flow v2 challenge used only in process memory."""
 
     requested_base_url: AnyHttpUrl
     login_url: AnyHttpUrl
@@ -24,10 +24,16 @@ class LoginFlowCredentials(BaseModel):
 
 
 class PendingLoginRecord(BaseModel):
+    """Credential-free pending-flow metadata suitable for persistent storage."""
+
     flow_id: str = Field(min_length=16, max_length=256)
     owner_subject: str = Field(min_length=1, max_length=512)
     root_path: str = Field(default="/ChatGPT", min_length=2, max_length=4096)
-    challenge: LoginFlowChallenge
+    requested_base_url: AnyHttpUrl
+    login_url: AnyHttpUrl
+    poll_endpoint: AnyHttpUrl
+    poll_token_ref: str = Field(min_length=8, max_length=512)
+    expires_at: datetime
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
