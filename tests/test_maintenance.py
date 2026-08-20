@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 from pydantic import SecretStr
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
 from nextcloud_chatgpt_bridge.connections.models import ConnectionRecord, PendingLoginRecord
 from nextcloud_chatgpt_bridge.maintenance import cleanup_hosted_storage
