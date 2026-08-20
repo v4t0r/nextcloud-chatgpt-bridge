@@ -9,8 +9,10 @@ from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel
 
+from nextcloud_chatgpt_bridge.capabilities import CapabilityReport, build_capability_report
 from nextcloud_chatgpt_bridge.config import Settings
 from nextcloud_chatgpt_bridge.models import FileInfo
+from nextcloud_chatgpt_bridge.providers.ocs import OCSClient, OCSError
 from nextcloud_chatgpt_bridge.providers.webdav import WebDAVClient, WebDAVError
 
 
@@ -59,8 +61,13 @@ mcp = MCPServer(
 
 
 def _new_client() -> WebDAVClient:
-    """Create a short-lived provider client. Kept injectable for MCP integration tests."""
+    """Create a short-lived WebDAV client. Kept injectable for MCP integration tests."""
     return WebDAVClient(Settings())
+
+
+def _new_ocs_client() -> OCSClient:
+    """Create a short-lived read-only OCS client."""
+    return OCSClient(Settings())
 
 
 def _entry(info: FileInfo) -> FileEntry:
@@ -95,7 +102,24 @@ def _translate_error(exc: Exception) -> RuntimeError:
         return RuntimeError(str(exc))
     if isinstance(exc, WebDAVError):
         return RuntimeError("Nextcloud WebDAV operation failed")
+    if isinstance(exc, OCSError):
+        return RuntimeError("Nextcloud OCS operation failed")
     return RuntimeError("Nextcloud bridge operation failed")
+
+
+@mcp.tool(
+    title="Inspect Nextcloud capabilities",
+    annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False),
+)
+def get_nextcloud_capabilities() -> CapabilityReport:
+    """Inspect server/app capability hints used to choose native Nextcloud or fallback providers."""
+    try:
+        settings = _safe_settings()
+        with _new_ocs_client() as client:
+            data = client.get_capabilities()
+        return build_capability_report(settings, data)
+    except Exception as exc:
+        raise _translate_error(exc) from exc
 
 
 @mcp.tool(
