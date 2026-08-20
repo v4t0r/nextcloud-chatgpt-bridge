@@ -81,7 +81,6 @@ Remaining public release gates include:
 - secret-free audit logging
 - privacy, retention and deletion policy enforcement
 - production process management and deployment monitoring
-- rate limits, auditability and abuse controls
 
 Self-hosted users may legitimately run Nextcloud on private networks, so these hosted-service controls must not be confused with the local deployment policy.
 

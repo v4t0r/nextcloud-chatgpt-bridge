@@ -166,9 +166,9 @@ The first live validation passed against Nextcloud 33.0.7 with OCS, WebDAV read/
 
 1. project bootstrap and CI — implemented
 2. WebDAV files MVP — implemented and live-validated
-3. MCP tool layer - implemented
-4. native Nextcloud capability/MCP detection - implemented; fallback live-validated
-5. public multi-user connection/auth/storage foundation - implemented; deployment integration pending
+3. MCP tool layer — implemented
+4. native Nextcloud capability/MCP detection — implemented; fallback live-validated
+5. public multi-user connection/auth/storage foundation — implemented; deployment integration pending
 6. infrastructure egress enforcement, rate limiting and audit/privacy controls
 7. end-to-end ChatGPT/Codex OAuth and account-connection validation
 8. search, shares, tags and versions
