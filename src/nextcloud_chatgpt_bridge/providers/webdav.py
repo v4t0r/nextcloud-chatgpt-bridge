@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import PurePosixPath
 from urllib.parse import quote, unquote, urlsplit
-from xml.etree import ElementTree as ET
 
 import httpx
+from defusedxml import ElementTree as ET
 
 from nextcloud_chatgpt_bridge.config import Settings
 from nextcloud_chatgpt_bridge.models import FileInfo
@@ -174,7 +174,9 @@ class WebDAVClient:
             result.append(
                 FileInfo(
                     path=rel,
-                    name=PurePosixPath(rel).name if rel else PurePosixPath(self.settings.nextcloud_root_path).name,
+                    name=PurePosixPath(rel).name
+                    if rel
+                    else PurePosixPath(self.settings.nextcloud_root_path).name,
                     is_dir=is_dir,
                     size=int(size_text) if size_text and size_text.isdigit() else None,
                     content_type=prop.findtext(f"{{{DAV}}}getcontenttype"),
