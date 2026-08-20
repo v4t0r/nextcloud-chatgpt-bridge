@@ -1,0 +1,37 @@
+from __future__ import annotations
+
+from pathlib import PurePosixPath
+
+from pydantic import AnyHttpUrl, Field, SecretStr, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Runtime configuration loaded from environment variables or a local .env file."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    nextcloud_base_url: AnyHttpUrl = Field(alias="NEXTCLOUD_BASE_URL")
+    nextcloud_username: str = Field(alias="NEXTCLOUD_USERNAME", min_length=1)
+    nextcloud_app_password: SecretStr = Field(alias="NEXTCLOUD_APP_PASSWORD")
+    nextcloud_root_path: str = Field(default="/ChatGPT", alias="NEXTCLOUD_ROOT_PATH")
+    nextcloud_verify_tls: bool = Field(default=True, alias="NEXTCLOUD_VERIFY_TLS")
+
+    @field_validator("nextcloud_root_path")
+    @classmethod
+    def validate_root_path(cls, value: str) -> str:
+        value = value.strip()
+        if not value.startswith("/"):
+            raise ValueError("NEXTCLOUD_ROOT_PATH must be an absolute Nextcloud path")
+
+        normalized = str(PurePosixPath(value))
+        if normalized in {"/", "."}:
+            raise ValueError("Refusing to use the entire Nextcloud account as root path")
+        if ".." in PurePosixPath(value).parts:
+            raise ValueError("NEXTCLOUD_ROOT_PATH must not contain parent traversal")
+        return normalized
