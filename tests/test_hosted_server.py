@@ -92,7 +92,7 @@ async def test_hosted_server_exposes_core_and_connection_tools(monkeypatch):
         core.configure_settings_resolver(LocalSettingsResolver())
 
 
-async def test_hosted_server_marks_external_file_tools_open_world():
+async def test_hosted_server_marks_private_nextcloud_tools_closed_world():
     service = FakeConnectionService()
     mcp = hosted.create_hosted_mcp(
         connection_service=service,  # type: ignore[arg-type]
@@ -103,8 +103,12 @@ async def test_hosted_server_marks_external_file_tools_open_world():
         async with Client(mcp) as client:
             listed = await client.list_tools()
         tools = {tool.name: tool for tool in listed.tools}
-        assert tools["list_files"].annotations.open_world_hint is True
+        assert tools["list_files"].annotations.read_only_hint is True
+        assert tools["list_files"].annotations.destructive_hint is False
+        assert tools["list_files"].annotations.open_world_hint is False
         assert tools["write_text_file"].annotations.destructive_hint is True
+        assert tools["write_text_file"].annotations.open_world_hint is False
         assert tools["disconnect_nextcloud"].annotations.destructive_hint is True
+        assert tools["disconnect_nextcloud"].annotations.open_world_hint is False
     finally:
         core.configure_settings_resolver(LocalSettingsResolver())
