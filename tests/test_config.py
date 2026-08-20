@@ -17,8 +17,13 @@ def make_settings(**overrides):
 
 
 def test_root_path_is_normalized():
-    settings = make_settings(NEXTCLOUD_ROOT_PATH="/ChatGPT/Projects/../Projects")
+    settings = make_settings(NEXTCLOUD_ROOT_PATH="/ChatGPT/Projects/")
     assert settings.nextcloud_root_path == "/ChatGPT/Projects"
+
+
+def test_root_path_rejects_parent_traversal():
+    with pytest.raises(ValidationError):
+        make_settings(NEXTCLOUD_ROOT_PATH="/ChatGPT/Projects/../Secrets")
 
 
 def test_root_path_rejects_entire_account():
