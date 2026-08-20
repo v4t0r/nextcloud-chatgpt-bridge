@@ -2,7 +2,7 @@ import httpx
 import pytest
 
 from nextcloud_chatgpt_bridge.config import Settings
-from nextcloud_chatgpt_bridge.providers.webdav import WebDAVClient
+from nextcloud_chatgpt_bridge.providers.webdav import WebDAVClient, WebDAVError
 
 
 MULTISTATUS = b'''<?xml version="1.0" encoding="utf-8"?>
@@ -22,13 +22,14 @@ MULTISTATUS = b'''<?xml version="1.0" encoding="utf-8"?>
 </d:multistatus>'''
 
 
-def settings() -> Settings:
+def settings(*, max_transfer_bytes: int = 4_000_000) -> Settings:
     return Settings(
         NEXTCLOUD_BASE_URL="https://cloud.example.com",
         NEXTCLOUD_USERNAME="bridge-user",
         NEXTCLOUD_APP_PASSWORD="test-app-password",  # noqa: S106
         NEXTCLOUD_ROOT_PATH="/ChatGPT",
         NEXTCLOUD_VERIFY_TLS=True,
+        NEXTCLOUD_MAX_TRANSFER_BYTES=max_transfer_bytes,
     )
 
 
@@ -65,3 +66,31 @@ def test_delete_root_is_refused_before_request():
     with WebDAVClient(settings(), transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(ValueError):
             client.delete("")
+
+
+def test_download_rejects_content_length_over_hard_limit():
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        return httpx.Response(
+            200,
+            headers={"Content-Length": "2048"},
+            content=b"x" * 2048,
+            request=request,
+        )
+
+    with WebDAVClient(
+        settings(max_transfer_bytes=1024), transport=httpx.MockTransport(handler)
+    ) as client:
+        with pytest.raises(WebDAVError, match="transfer limit"):
+            client.download_file("large.bin")
+
+
+def test_upload_is_bounded_before_network_request():
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("network request must not occur")
+
+    with WebDAVClient(
+        settings(max_transfer_bytes=1024), transport=httpx.MockTransport(handler)
+    ) as client:
+        with pytest.raises(ValueError, match="transfer limit"):
+            client.upload_file("large.bin", b"x" * 1025)
