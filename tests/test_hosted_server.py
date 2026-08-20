@@ -9,7 +9,7 @@ from pydantic import AnyHttpUrl
 import nextcloud_chatgpt_bridge.hosted_server as hosted
 import nextcloud_chatgpt_bridge.server as core
 from nextcloud_chatgpt_bridge.auth import HostedAuthConfig
-from nextcloud_chatgpt_bridge.connections.models import ConnectStart, ConnectionSummary
+from nextcloud_chatgpt_bridge.connections.models import ConnectStart
 from nextcloud_chatgpt_bridge.runtime import LocalSettingsResolver
 
 pytestmark = pytest.mark.anyio
