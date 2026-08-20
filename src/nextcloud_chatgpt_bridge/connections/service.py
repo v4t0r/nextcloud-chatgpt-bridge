@@ -92,8 +92,8 @@ class ConnectionService:
         flow_id: str,
     ) -> ConnectionSummary | None:
         subject = self._require_subject(owner_subject)
-        pending = self.connection_store.get_pending(flow_id)
-        if pending is None or pending.owner_subject != subject:
+        pending = self.connection_store.get_pending(flow_id, subject)
+        if pending is None:
             raise ConnectionNotFoundError("Connection flow was not found")
         if datetime.now(UTC) >= pending.expires_at:
             self._delete_pending(pending)
@@ -147,8 +147,7 @@ class ConnectionService:
         subject = self._require_subject(owner_subject)
         return [
             self._summary(record)
-            for record in self.connection_store.list_connections()
-            if record.owner_subject == subject
+            for record in self.connection_store.list_connections(subject)
         ]
 
     def update_root_path(
@@ -185,14 +184,15 @@ class ConnectionService:
         connection_id: str,
     ) -> DisconnectResult:
         """Disconnect locally even if remote app-password revocation unexpectedly fails."""
-        record = self._get_owned_record(owner_subject, connection_id)
+        subject = self._require_subject(owner_subject)
+        record = self._get_owned_record(subject, connection_id)
         secret = self.secret_store.get(record.credential_ref)
         revoked = False
 
         try:
             if secret is not None:
                 settings = self.resolve_settings(
-                    owner_subject=owner_subject,
+                    owner_subject=subject,
                     connection_id=connection_id,
                 )
                 with OCSClient(settings) as ocs:
@@ -202,7 +202,7 @@ class ConnectionService:
             revoked = False
         finally:
             self.secret_store.delete(record.credential_ref)
-            self.connection_store.delete_connection(connection_id)
+            self.connection_store.delete_connection(connection_id, subject)
 
         return DisconnectResult(
             connection_id=connection_id,
@@ -211,7 +211,7 @@ class ConnectionService:
 
     def _delete_pending(self, pending: PendingLoginRecord) -> None:
         self.secret_store.delete(pending.poll_token_ref)
-        self.connection_store.delete_pending(pending.flow_id)
+        self.connection_store.delete_pending(pending.flow_id, pending.owner_subject)
 
     @staticmethod
     def _best_effort_revoke(credentials: LoginFlowCredentials, root_path: str) -> None:
@@ -232,8 +232,8 @@ class ConnectionService:
 
     def _get_owned_record(self, owner_subject: str, connection_id: str) -> ConnectionRecord:
         subject = self._require_subject(owner_subject)
-        record = self.connection_store.get_connection(connection_id)
-        if record is None or record.owner_subject != subject:
+        record = self.connection_store.get_connection(connection_id, subject)
+        if record is None:
             raise ConnectionNotFoundError("Connection was not found")
         return record
 
