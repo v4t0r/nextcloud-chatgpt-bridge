@@ -10,6 +10,8 @@ from nextcloud_chatgpt_bridge.connections.models import (
     ConnectionRecord,
     ConnectionSummary,
     DisconnectResult,
+    LoginFlowChallenge,
+    LoginFlowCredentials,
     PendingLoginRecord,
 )
 from nextcloud_chatgpt_bridge.connections.store import ConnectionStore, SecretStore
@@ -29,7 +31,7 @@ class ConnectionExpiredError(ConnectionError):
 
 
 class ConnectionService:
-    """Owns Nextcloud account linking without ever exposing long-lived credentials to MCP/UI."""
+    """Owns Nextcloud account linking without exposing credentials to MCP/UI metadata."""
 
     def __init__(
         self,
@@ -60,14 +62,23 @@ class ConnectionService:
         root = normalize_root_path(root_path)
         challenge = self.login_client.initiate(base_url)
         flow_id = f"flow_{token_urlsafe(32)}"
-        self.connection_store.put_pending(
-            PendingLoginRecord(
-                flow_id=flow_id,
-                owner_subject=subject,
-                root_path=root,
-                challenge=challenge,
-            )
+        poll_token_ref = self.secret_store.put(challenge.poll_token)
+        pending = PendingLoginRecord(
+            flow_id=flow_id,
+            owner_subject=subject,
+            root_path=root,
+            requested_base_url=challenge.requested_base_url,
+            login_url=challenge.login_url,
+            poll_endpoint=challenge.poll_endpoint,
+            poll_token_ref=poll_token_ref,
+            expires_at=challenge.expires_at,
         )
+        try:
+            self.connection_store.put_pending(pending)
+        except Exception:
+            self.secret_store.delete(poll_token_ref)
+            raise
+
         return ConnectStart(
             flow_id=flow_id,
             login_url=challenge.login_url,
@@ -84,38 +95,57 @@ class ConnectionService:
         pending = self.connection_store.get_pending(flow_id)
         if pending is None or pending.owner_subject != subject:
             raise ConnectionNotFoundError("Connection flow was not found")
-        if datetime.now(UTC) >= pending.challenge.expires_at:
-            self.connection_store.delete_pending(flow_id)
+        if datetime.now(UTC) >= pending.expires_at:
+            self._delete_pending(pending)
             raise ConnectionExpiredError("Connection flow has expired")
 
+        poll_token = self.secret_store.get(pending.poll_token_ref)
+        if poll_token is None:
+            self._delete_pending(pending)
+            raise ConnectionError("Connection flow credential is unavailable")
+
+        challenge = LoginFlowChallenge(
+            requested_base_url=pending.requested_base_url,
+            login_url=pending.login_url,
+            poll_endpoint=pending.poll_endpoint,
+            poll_token=poll_token,
+            expires_at=pending.expires_at,
+        )
         try:
-            credentials = self.login_client.poll(pending.challenge)
+            credentials = self.login_client.poll(challenge)
         except LoginFlowError as exc:
             raise ConnectionError("Nextcloud account linking failed") from exc
         if credentials is None:
             return None
 
-        credential_ref = self.secret_store.put(credentials.app_password)
-        connection_id = f"nc_{token_urlsafe(32)}"
-        record = ConnectionRecord(
-            connection_id=connection_id,
-            owner_subject=subject,
-            base_url=credentials.server,
-            login_name=credentials.login_name,
-            root_path=pending.root_path,
-            credential_ref=credential_ref,
-            verify_tls=True,
-        )
-
+        credential_ref: str | None = None
+        committed = False
         try:
+            credential_ref = self.secret_store.put(credentials.app_password)
+            connection_id = f"nc_{token_urlsafe(32)}"
+            record = ConnectionRecord(
+                connection_id=connection_id,
+                owner_subject=subject,
+                base_url=credentials.server,
+                login_name=credentials.login_name,
+                root_path=pending.root_path,
+                credential_ref=credential_ref,
+                verify_tls=True,
+            )
             self.connection_store.put_connection(record)
+            committed = True
+            return self._summary(record)
         except Exception:
-            self.secret_store.delete(credential_ref)
+            if credential_ref is not None:
+                self.secret_store.delete(credential_ref)
+            self._best_effort_revoke(credentials, pending.root_path)
             raise
         finally:
-            self.connection_store.delete_pending(flow_id)
-
-        return self._summary(record)
+            # Nextcloud returns the generated app password only once. Once completion data has
+            # arrived the poll flow is consumed whether persistence succeeds or fails.
+            self._delete_pending(pending)
+            if not committed and credential_ref is not None:
+                self.secret_store.delete(credential_ref)
 
     def list_connections(self, *, owner_subject: str) -> list[ConnectionSummary]:
         subject = self._require_subject(owner_subject)
@@ -173,9 +203,6 @@ class ConnectionService:
                     ocs.delete_app_password()
                 revoked = True
         except Exception:
-            # Remote revocation is best-effort. Never let a network/library/server failure
-            # prevent local credential deletion. Users can also revoke the app password in
-            # Nextcloud's security settings if this flag returns false.
             revoked = False
         finally:
             self.secret_store.delete(record.credential_ref)
@@ -186,11 +213,31 @@ class ConnectionService:
             remote_credential_revoked=revoked,
         )
 
+    def _delete_pending(self, pending: PendingLoginRecord) -> None:
+        self.secret_store.delete(pending.poll_token_ref)
+        self.connection_store.delete_pending(pending.flow_id)
+
+    @staticmethod
+    def _best_effort_revoke(credentials: LoginFlowCredentials, root_path: str) -> None:
+        try:
+            settings = Settings(
+                NEXTCLOUD_BASE_URL=str(credentials.server),
+                NEXTCLOUD_USERNAME=credentials.login_name,
+                NEXTCLOUD_APP_PASSWORD=credentials.app_password.get_secret_value(),
+                NEXTCLOUD_ROOT_PATH=root_path,
+                NEXTCLOUD_VERIFY_TLS=True,
+                NEXTCLOUD_ALLOW_INSECURE_HTTP=False,
+            )
+            with OCSClient(settings) as ocs:
+                ocs.delete_app_password()
+        except Exception:
+            # Persistence already failed. Do not mask the original exception with cleanup failure.
+            pass
+
     def _get_owned_record(self, owner_subject: str, connection_id: str) -> ConnectionRecord:
         subject = self._require_subject(owner_subject)
         record = self.connection_store.get_connection(connection_id)
         if record is None or record.owner_subject != subject:
-            # Deliberately identical response for missing vs. foreign records.
             raise ConnectionNotFoundError("Connection was not found")
         return record
 
