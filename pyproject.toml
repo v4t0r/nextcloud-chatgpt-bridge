@@ -19,11 +19,18 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+hosted = [
+  "cryptography>=50,<51",
+  "psycopg[binary]>=3.3.4,<4",
+  "SQLAlchemy>=2.0.51,<2.1",
+]
 dev = [
+  "cryptography>=50,<51",
   "mcp[cli]>=2,<3",
   "pytest>=8.3,<9",
   "pytest-cov>=5,<7",
   "ruff>=0.6,<1",
+  "SQLAlchemy>=2.0.51,<2.1",
 ]
 
 [project.scripts]
