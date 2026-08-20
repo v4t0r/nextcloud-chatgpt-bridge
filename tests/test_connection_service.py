@@ -90,16 +90,41 @@ def test_connect_start_does_not_expose_poll_token_or_app_password():
     assert "login/v2/flow/abc" in serialized
 
 
-def test_completed_connection_separates_metadata_from_secret():
+def test_pending_metadata_contains_only_poll_secret_reference():
     service, store, secrets, _ = make_service()
-    _, completed = connect(service)
+    started = service.begin_connection(
+        owner_subject="user-a",
+        base_url="https://cloud.example.com",
+    )
 
+    pending = store.get_pending(started.flow_id)
+    assert pending is not None
+    assert "poll-secret" not in pending.model_dump_json()
+    secret = secrets.get(pending.poll_token_ref)
+    assert secret is not None
+    assert secret.get_secret_value() == "poll-secret"
+
+
+def test_completed_connection_separates_metadata_from_secret_and_consumes_poll_secret():
+    service, store, secrets, _ = make_service()
+    started = service.begin_connection(
+        owner_subject="user-a",
+        base_url="https://cloud.example.com",
+    )
+    pending = store.get_pending(started.flow_id)
+    assert pending is not None
+    poll_token_ref = pending.poll_token_ref
+
+    completed = service.poll_connection(owner_subject="user-a", flow_id=started.flow_id)
+    assert completed is not None
     record = store.get_connection(completed.connection_id)
     assert record is not None
     assert "generated-app-password" not in record.model_dump_json()
     stored_secret = secrets.get(record.credential_ref)
     assert stored_secret is not None
     assert stored_secret.get_secret_value() == "generated-app-password"
+    assert secrets.get(poll_token_ref) is None
+    assert store.get_pending(started.flow_id) is None
 
     settings = service.resolve_settings(
         owner_subject="user-a",
@@ -143,17 +168,20 @@ def test_root_scope_is_validated_before_starting_remote_login():
     assert login.initiated == []
 
 
-def test_poll_can_remain_pending_without_creating_connection():
-    service, store, _, login = make_service()
+def test_poll_can_remain_pending_without_creating_connection_or_losing_poll_secret():
+    service, store, secrets, login = make_service()
     login.completed = False
     started = service.begin_connection(
         owner_subject="user-a",
         base_url="https://cloud.example.com",
     )
+    pending = store.get_pending(started.flow_id)
+    assert pending is not None
 
     assert service.poll_connection(owner_subject="user-a", flow_id=started.flow_id) is None
     assert list(store.list_connections()) == []
     assert store.get_pending(started.flow_id) is not None
+    assert secrets.get(pending.poll_token_ref) is not None
 
 
 def test_disconnect_revokes_remote_credential_then_removes_local_secret(monkeypatch):
