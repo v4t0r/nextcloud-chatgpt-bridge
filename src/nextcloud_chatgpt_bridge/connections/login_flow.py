@@ -12,6 +12,7 @@ from nextcloud_chatgpt_bridge.connections.models import (
     LoginFlowChallenge,
     LoginFlowCredentials,
 )
+from nextcloud_chatgpt_bridge.network_policy import LocalSelfHostedPolicy, TargetPolicy
 
 _MAX_LOGIN_RESPONSE_BYTES = 128 * 1024
 _LOGIN_FLOW_TTL = timedelta(minutes=20)
@@ -66,15 +67,19 @@ def _read_bounded_json(response: httpx.Response) -> dict[str, Any]:
 
 
 class LoginFlowClient:
-    """Nextcloud Login Flow v2 client with strict origin and response-size boundaries."""
+    """Nextcloud Login Flow v2 client with strict origin, target and size boundaries."""
 
     def __init__(
         self,
         *,
         allow_insecure_http: bool = False,
+        target_policy: TargetPolicy | None = None,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         self.allow_insecure_http = allow_insecure_http
+        self.target_policy = target_policy or LocalSelfHostedPolicy(
+            allow_insecure_http=allow_insecure_http
+        )
         self.client = httpx.Client(
             timeout=httpx.Timeout(15.0, read=30.0),
             follow_redirects=False,
@@ -93,6 +98,7 @@ class LoginFlowClient:
 
     def initiate(self, base_url: str) -> LoginFlowChallenge:
         base = _validate_base_url(base_url, allow_insecure_http=self.allow_insecure_http)
+        self.target_policy.validate_url(base)
         endpoint = f"{base}/index.php/login/v2"
 
         with self.client.stream("POST", endpoint) as response:
@@ -114,6 +120,8 @@ class LoginFlowClient:
 
         _require_same_origin(login, base)
         _require_same_origin(poll_endpoint, base)
+        self.target_policy.validate_url(login)
+        self.target_policy.validate_url(poll_endpoint)
 
         return LoginFlowChallenge(
             requested_base_url=AnyHttpUrl(base),
@@ -130,6 +138,7 @@ class LoginFlowClient:
         poll_endpoint = str(challenge.poll_endpoint)
         expected_base = str(challenge.requested_base_url)
         _require_same_origin(poll_endpoint, expected_base)
+        self.target_policy.validate_url(poll_endpoint)
 
         with self.client.stream(
             "POST",
@@ -152,6 +161,7 @@ class LoginFlowClient:
 
         server = _validate_base_url(server, allow_insecure_http=self.allow_insecure_http)
         _require_same_origin(server, expected_base)
+        self.target_policy.validate_url(server)
 
         return LoginFlowCredentials(
             server=AnyHttpUrl(server),
