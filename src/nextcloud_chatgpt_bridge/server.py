@@ -19,6 +19,11 @@ from nextcloud_chatgpt_bridge.providers.native_mcp import (
 )
 from nextcloud_chatgpt_bridge.providers.ocs import OCSClient, OCSError
 from nextcloud_chatgpt_bridge.providers.webdav import WebDAVClient, WebDAVError
+from nextcloud_chatgpt_bridge.runtime import (
+    LocalSettingsResolver,
+    RuntimeResolutionError,
+    SettingsResolver,
+)
 
 
 class FileEntry(BaseModel):
@@ -72,15 +77,27 @@ mcp = MCPServer(
     ),
 )
 
+_settings_resolver: SettingsResolver = LocalSettingsResolver()
+
+
+def configure_settings_resolver(resolver: SettingsResolver) -> None:
+    """Select how tool calls resolve the caller's Nextcloud configuration."""
+    global _settings_resolver
+    _settings_resolver = resolver
+
+
+def _safe_settings() -> Settings:
+    return _settings_resolver.resolve()
+
 
 def _new_client() -> WebDAVClient:
     """Create a short-lived WebDAV client. Kept injectable for MCP integration tests."""
-    return WebDAVClient(Settings())
+    return WebDAVClient(_safe_settings())
 
 
 def _new_ocs_client() -> OCSClient:
-    """Create a short-lived read-only OCS client."""
-    return OCSClient(Settings())
+    """Create a short-lived OCS client using the same per-request settings resolver."""
+    return OCSClient(_safe_settings())
 
 
 def _entry(info: FileInfo) -> FileEntry:
@@ -95,10 +112,6 @@ def _entry(info: FileInfo) -> FileEntry:
     )
 
 
-def _safe_settings() -> Settings:
-    return Settings()
-
-
 def _validate_transfer(info: FileInfo, settings: Settings) -> None:
     if info.is_dir:
         raise ValueError("The requested path is a directory, not a file")
@@ -111,7 +124,7 @@ def _validate_transfer(info: FileInfo, settings: Settings) -> None:
 
 
 def _translate_error(exc: Exception) -> RuntimeError:
-    if isinstance(exc, (ValueError, UnicodeError, binascii.Error)):
+    if isinstance(exc, (ValueError, UnicodeError, binascii.Error, RuntimeResolutionError)):
         return RuntimeError(str(exc))
     if isinstance(exc, WebDAVError):
         return RuntimeError("Nextcloud WebDAV operation failed")
@@ -337,7 +350,7 @@ def main() -> None:
         "--transport",
         choices=("stdio", "streamable-http"),
         default="stdio",
-        help="MCP transport. HTTP is intended for local development until auth is added.",
+        help="MCP transport. HTTP here is local-development mode; hosted mode adds OAuth.",
     )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)

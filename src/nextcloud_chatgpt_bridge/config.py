@@ -6,6 +6,20 @@ from pydantic import AnyHttpUrl, Field, SecretStr, field_validator, model_valida
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def normalize_root_path(value: str) -> str:
+    """Normalize and enforce the bridge's least-privilege Nextcloud root boundary."""
+    value = value.strip()
+    if not value.startswith("/"):
+        raise ValueError("NEXTCLOUD_ROOT_PATH must be an absolute Nextcloud path")
+
+    normalized = str(PurePosixPath(value))
+    if normalized in {"/", "."}:
+        raise ValueError("Refusing to use the entire Nextcloud account as root path")
+    if ".." in PurePosixPath(value).parts:
+        raise ValueError("NEXTCLOUD_ROOT_PATH must not contain parent traversal")
+    return normalized
+
+
 class Settings(BaseSettings):
     """Runtime configuration loaded from environment variables or a local .env file."""
 
@@ -32,21 +46,13 @@ class Settings(BaseSettings):
     @field_validator("nextcloud_root_path")
     @classmethod
     def validate_root_path(cls, value: str) -> str:
-        value = value.strip()
-        if not value.startswith("/"):
-            raise ValueError("NEXTCLOUD_ROOT_PATH must be an absolute Nextcloud path")
-
-        normalized = str(PurePosixPath(value))
-        if normalized in {"/", "."}:
-            raise ValueError("Refusing to use the entire Nextcloud account as root path")
-        if ".." in PurePosixPath(value).parts:
-            raise ValueError("NEXTCLOUD_ROOT_PATH must not contain parent traversal")
-        return normalized
+        return normalize_root_path(value)
 
     @model_validator(mode="after")
-    def enforce_encrypted_transport(self) -> "Settings":
+    def enforce_encrypted_transport(self) -> Settings:
         if self.nextcloud_base_url.scheme != "https" and not self.allow_insecure_http:
             raise ValueError(
                 "NEXTCLOUD_BASE_URL must use HTTPS unless NEXTCLOUD_ALLOW_INSECURE_HTTP=true"
             )
         return self
+
