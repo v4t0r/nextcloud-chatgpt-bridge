@@ -119,7 +119,6 @@ class ConnectionService:
             return None
 
         credential_ref: str | None = None
-        committed = False
         try:
             credential_ref = self.secret_store.put(credentials.app_password)
             connection_id = f"nc_{token_urlsafe(32)}"
@@ -133,7 +132,6 @@ class ConnectionService:
                 verify_tls=True,
             )
             self.connection_store.put_connection(record)
-            committed = True
             return self._summary(record)
         except Exception:
             if credential_ref is not None:
@@ -144,8 +142,6 @@ class ConnectionService:
             # Nextcloud returns the generated app password only once. Once completion data has
             # arrived the poll flow is consumed whether persistence succeeds or fails.
             self._delete_pending(pending)
-            if not committed and credential_ref is not None:
-                self.secret_store.delete(credential_ref)
 
     def list_connections(self, *, owner_subject: str) -> list[ConnectionSummary]:
         subject = self._require_subject(owner_subject)
@@ -232,7 +228,7 @@ class ConnectionService:
                 ocs.delete_app_password()
         except Exception:
             # Persistence already failed. Do not mask the original exception with cleanup failure.
-            pass
+            return
 
     def _get_owned_record(self, owner_subject: str, connection_id: str) -> ConnectionRecord:
         subject = self._require_subject(owner_subject)
