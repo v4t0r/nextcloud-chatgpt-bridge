@@ -27,6 +27,7 @@ dev = [
 
 [project.scripts]
 nextcloud-chatgpt-bridge = "nextcloud_chatgpt_bridge.server:main"
+nextcloud-chatgpt-diagnose = "nextcloud_chatgpt_bridge.diagnostics:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/nextcloud_chatgpt_bridge"]
@@ -41,4 +42,4 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "S"]
-ignore = ["S101"]
+ignore = ["E501", "S101"]
