@@ -114,12 +114,32 @@ class WebDAVClient:
             raise WebDAVError("Nextcloud returned no metadata for the requested path")
         return entries[0]
 
-    def download_file(self, path: str) -> bytes:
-        response = self.client.get(self._url(path))
-        self._raise_for_status(response, {200})
-        return response.content
+    def download_file(self, path: str, *, max_bytes: int | None = None) -> bytes:
+        """Stream a file with a hard byte cap to avoid TOCTOU/unbounded-memory downloads."""
+        limit = self.settings.max_transfer_bytes if max_bytes is None else max_bytes
+        if limit < 1:
+            raise ValueError("max_bytes must be positive")
+
+        chunks: list[bytes] = []
+        total = 0
+        with self.client.stream("GET", self._url(path)) as response:
+            self._raise_for_status(response, {200})
+
+            content_length = response.headers.get("Content-Length")
+            if content_length and content_length.isdigit() and int(content_length) > limit:
+                raise WebDAVError("Nextcloud file exceeds the configured transfer limit")
+
+            for chunk in response.iter_bytes():
+                total += len(chunk)
+                if total > limit:
+                    raise WebDAVError("Nextcloud file exceeds the configured transfer limit")
+                chunks.append(chunk)
+
+        return b"".join(chunks)
 
     def upload_file(self, path: str, content: bytes, *, overwrite: bool = False) -> FileInfo:
+        if len(content) > self.settings.max_transfer_bytes:
+            raise ValueError("Upload exceeds the configured transfer limit")
         headers = {"If-None-Match": "*"} if not overwrite else {}
         response = self.client.put(self._url(path), content=content, headers=headers)
         self._raise_for_status(response, {201, 204})
