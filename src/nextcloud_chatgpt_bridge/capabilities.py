@@ -6,6 +6,8 @@ from pydantic import BaseModel
 
 from nextcloud_chatgpt_bridge.config import Settings
 
+_MAX_CAPABILITY_NODES = 10_000
+
 
 class CapabilityReport(BaseModel):
     nextcloud_version: str | None = None
@@ -20,14 +22,25 @@ class CapabilityReport(BaseModel):
 
 
 def _all_keys(value: Any) -> set[str]:
+    """Collect nested capability keys without recursive-stack exposure."""
     keys: set[str] = set()
-    if isinstance(value, dict):
-        for key, child in value.items():
-            keys.add(str(key).lower())
-            keys.update(_all_keys(child))
-    elif isinstance(value, list):
-        for child in value:
-            keys.update(_all_keys(child))
+    stack: list[Any] = [value]
+    visited = 0
+
+    while stack:
+        current = stack.pop()
+        visited += 1
+        if visited > _MAX_CAPABILITY_NODES:
+            break
+
+        if isinstance(current, dict):
+            for key, child in current.items():
+                keys.add(str(key).lower())
+                if isinstance(child, (dict, list)):
+                    stack.append(child)
+        elif isinstance(current, list):
+            stack.extend(child for child in current if isinstance(child, (dict, list)))
+
     return keys
 
 
