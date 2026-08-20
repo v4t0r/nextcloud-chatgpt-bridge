@@ -1,5 +1,10 @@
 BEGIN;
 
+CREATE TABLE bridge_schema_migrations (
+    version INTEGER PRIMARY KEY,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE bridge_secrets (
     secret_ref VARCHAR(256) PRIMARY KEY,
     key_id VARCHAR(64) NOT NULL,
@@ -45,5 +50,7 @@ CREATE INDEX ix_nextcloud_connection_owner
 -- metadata explicitly so a transient vault/database failure cannot silently cascade-delete user
 -- metadata. A separate maintenance job handles old unreferenced encrypted blobs after a grace
 -- period, which also covers process crashes between secret insertion and metadata commit.
+
+INSERT INTO bridge_schema_migrations (version) VALUES (1);
 
 COMMIT;
