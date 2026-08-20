@@ -15,6 +15,10 @@ MULTISTATUS = b'''<?xml version="1.0" encoding="utf-8"?>
     <d:href>/remote.php/dav/files/bridge-user/ChatGPT/report.txt</d:href>
     <d:propstat><d:prop><d:resourcetype/><d:getcontentlength>42</d:getcontentlength><d:getcontenttype>text/plain</d:getcontenttype><d:getetag>&quot;abc&quot;</d:getetag></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>
   </d:response>
+  <d:response>
+    <d:href>/remote.php/dav/files/bridge-user/ChatGPT-evil/secrets.txt</d:href>
+    <d:propstat><d:prop><d:resourcetype/><d:getcontentlength>999</d:getcontentlength></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>
+  </d:response>
 </d:multistatus>'''
 
 
@@ -28,7 +32,7 @@ def settings() -> Settings:
     )
 
 
-def test_list_files_returns_children_only():
+def test_list_files_returns_children_only_and_ignores_outside_hrefs():
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.method == "PROPFIND"
         assert request.headers["Depth"] == "1"
