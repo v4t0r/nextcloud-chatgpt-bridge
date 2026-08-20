@@ -85,9 +85,9 @@ class WebDAVClient:
     @staticmethod
     def _raise_for_status(response: httpx.Response, expected: set[int]) -> None:
         if response.status_code not in expected:
-            raise WebDAVError(
-                f"Nextcloud WebDAV returned HTTP {response.status_code}: {response.text[:300]}"
-            )
+            # Never echo a remote response body into MCP errors. WebDAV bodies are untrusted data
+            # and can contain sensitive server details or prompt-injection text.
+            raise WebDAVError(f"Nextcloud WebDAV returned HTTP {response.status_code}")
 
     def list_files(self, path: str = "") -> list[FileInfo]:
         response = self.client.request(
