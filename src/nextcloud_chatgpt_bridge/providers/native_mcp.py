@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 import httpx2
@@ -10,6 +11,7 @@ from nextcloud_chatgpt_bridge.config import Settings
 
 _MAX_REPORTED_TOOLS = 200
 _MAX_TOOL_NAME_LENGTH = 128
+_UNSAFE_TOOL_NAME_CHARS = re.compile(r"[^A-Za-z0-9_.:/-]+")
 
 
 class NativeMCPError(RuntimeError):
@@ -33,7 +35,8 @@ def _safe_tool_names(tools: list[object]) -> tuple[tuple[str, ...], bool]:
     names: list[str] = []
     for tool in tools[: _MAX_REPORTED_TOOLS + 1]:
         raw = getattr(tool, "name", "")
-        name = str(raw).strip()[:_MAX_TOOL_NAME_LENGTH]
+        normalized = _UNSAFE_TOOL_NAME_CHARS.sub("_", str(raw).strip())
+        name = normalized[:_MAX_TOOL_NAME_LENGTH].strip("_")
         if name:
             names.append(name)
 
