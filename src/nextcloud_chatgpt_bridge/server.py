@@ -12,6 +12,11 @@ from pydantic import BaseModel
 from nextcloud_chatgpt_bridge.capabilities import CapabilityReport, build_capability_report
 from nextcloud_chatgpt_bridge.config import Settings
 from nextcloud_chatgpt_bridge.models import FileInfo
+from nextcloud_chatgpt_bridge.providers.native_mcp import (
+    NativeMCPError,
+    context_agent_mcp_url,
+    probe_context_agent_mcp,
+)
 from nextcloud_chatgpt_bridge.providers.ocs import OCSClient, OCSError
 from nextcloud_chatgpt_bridge.providers.webdav import WebDAVClient, WebDAVError
 
@@ -49,6 +54,14 @@ class OperationResult(BaseModel):
     ok: bool = True
     path: str
     message: str
+
+
+class NativeMCPStatus(BaseModel):
+    available: bool
+    endpoint: str
+    protocol_version: str | None = None
+    tool_names: list[str]
+    tools_truncated: bool = False
 
 
 mcp = MCPServer(
@@ -120,6 +133,32 @@ def get_nextcloud_capabilities() -> CapabilityReport:
         return build_capability_report(settings, data)
     except Exception as exc:
         raise _translate_error(exc) from exc
+
+
+@mcp.tool(
+    title="Probe native Nextcloud MCP",
+    annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False),
+)
+async def probe_native_nextcloud_mcp() -> NativeMCPStatus:
+    """Check whether Nextcloud Context Agent MCP is reachable; never invokes a native tool."""
+    settings = _safe_settings()
+    endpoint = context_agent_mcp_url(settings)
+    try:
+        result = await probe_context_agent_mcp(settings)
+    except NativeMCPError:
+        return NativeMCPStatus(
+            available=False,
+            endpoint=endpoint,
+            tool_names=[],
+        )
+
+    return NativeMCPStatus(
+        available=True,
+        endpoint=result.endpoint,
+        protocol_version=result.protocol_version,
+        tool_names=list(result.tool_names),
+        tools_truncated=result.tools_truncated,
+    )
 
 
 @mcp.tool(
