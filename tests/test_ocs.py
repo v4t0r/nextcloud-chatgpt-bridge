@@ -51,3 +51,30 @@ def test_ocs_error_never_echoes_remote_body():
 
     assert "HTTP 500" in str(exc_info.value)
     assert "sensitive remote body" not in str(exc_info.value)
+
+
+def test_capabilities_response_is_bounded():
+    oversized = b"{" + b" " * (1024 * 1024) + b"}"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=oversized, request=request)
+
+    with OCSClient(settings(), transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(OCSError, match="safety limit"):
+            client.get_capabilities()
+
+
+def test_delete_app_password_uses_authenticated_ocs_endpoint():
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.method)
+        assert str(request.url) == "https://cloud.example.com/ocs/v2.php/core/apppassword"
+        assert request.headers["OCS-APIRequest"] == "true"
+        assert request.headers["Authorization"].startswith("Basic ")
+        return httpx.Response(200, request=request)
+
+    with OCSClient(settings(), transport=httpx.MockTransport(handler)) as client:
+        client.delete_app_password()
+
+    assert seen == ["DELETE"]
