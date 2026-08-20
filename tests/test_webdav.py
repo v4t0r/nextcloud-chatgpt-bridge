@@ -4,7 +4,6 @@ import pytest
 from nextcloud_chatgpt_bridge.config import Settings
 from nextcloud_chatgpt_bridge.providers.webdav import WebDAVClient, WebDAVError
 
-
 MULTISTATUS = b'''<?xml version="1.0" encoding="utf-8"?>
 <d:multistatus xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">
   <d:response>
@@ -94,3 +93,4 @@ def test_upload_is_bounded_before_network_request():
     ) as client:
         with pytest.raises(ValueError, match="transfer limit"):
             client.upload_file("large.bin", b"x" * 1025)
+

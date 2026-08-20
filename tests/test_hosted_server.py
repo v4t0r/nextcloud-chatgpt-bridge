@@ -10,6 +10,7 @@ import nextcloud_chatgpt_bridge.hosted_server as hosted
 import nextcloud_chatgpt_bridge.server as core
 from nextcloud_chatgpt_bridge.auth import HostedAuthConfig
 from nextcloud_chatgpt_bridge.connections.models import ConnectStart
+from nextcloud_chatgpt_bridge.identity import BridgeIdentity, BridgeSessionContext
 from nextcloud_chatgpt_bridge.runtime import LocalSettingsResolver
 
 pytestmark = pytest.mark.anyio
@@ -19,18 +20,18 @@ class FakeConnectionService:
     def __init__(self) -> None:
         self.started: list[tuple[str, str, str]] = []
 
-    def begin_connection(self, *, owner_subject: str, base_url: str, root_path: str):
-        self.started.append((owner_subject, base_url, root_path))
+    def begin_connection(self, *, context, base_url: str, root_path: str):
+        self.started.append((context.tenant_id, base_url, root_path))
         return ConnectStart(
             flow_id="flow_1234567890123456",
             login_url=AnyHttpUrl("https://cloud.example.com/login/v2/flow/abc"),
             expires_at=datetime.now(UTC) + timedelta(minutes=20),
         )
 
-    def poll_connection(self, *, owner_subject: str, flow_id: str):
+    def poll_connection(self, *, context, flow_id: str):
         return None
 
-    def list_connections(self, *, owner_subject: str):
+    def list_connections(self, *, context):
         return []
 
     def update_root_path(self, **kwargs):
@@ -58,9 +59,20 @@ def auth_config() -> HostedAuthConfig:
     )
 
 
+def session() -> BridgeSessionContext:
+    return BridgeSessionContext(
+        identity=BridgeIdentity(
+            issuer="https://auth.example.com/",
+            subject="user-a",
+        ),
+        client_id="chatgpt-client",
+        scopes=frozenset({"nextcloud:use"}),
+    )
+
+
 async def test_hosted_server_exposes_core_and_connection_tools(monkeypatch):
     service = FakeConnectionService()
-    monkeypatch.setattr(hosted, "current_oauth_subject", lambda: "user-a")
+    monkeypatch.setattr(hosted, "current_session_context", session)
     mcp = hosted.create_hosted_mcp(
         connection_service=service,  # type: ignore[arg-type]
         auth_config=auth_config(),
@@ -87,7 +99,9 @@ async def test_hosted_server_exposes_core_and_connection_tools(monkeypatch):
         assert result.is_error is False
         assert result.structured_content["flow_id"] == "flow_1234567890123456"
         assert "app_password" not in str(result.structured_content).lower()
-        assert service.started == [("user-a", "https://cloud.example.com", "/ChatGPT")]
+        assert service.started == [
+            (session().tenant_id, "https://cloud.example.com", "/ChatGPT")
+        ]
     finally:
         core.configure_settings_resolver(LocalSettingsResolver())
 

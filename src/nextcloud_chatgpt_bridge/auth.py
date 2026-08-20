@@ -38,7 +38,7 @@ class HostedAuthConfig(BaseSettings):
         return value
 
     @model_validator(mode="after")
-    def fill_and_validate_audience(self) -> "HostedAuthConfig":
+    def fill_and_validate_audience(self) -> HostedAuthConfig:
         if self.audience is None:
             self.audience = str(self.resource_server_url)
         if not self.audience.strip():
@@ -162,3 +162,4 @@ def build_mcp_auth(config: HostedAuthConfig) -> tuple[AuthSettings, OIDCTokenVer
         ),
         OIDCTokenVerifier(config),
     )
+

@@ -12,12 +12,15 @@ from nextcloud_chatgpt_bridge.connections.models import ConnectionRecord, Pendin
 from nextcloud_chatgpt_bridge.persistence import (
     AesGcmKeyring,
     Base,
+    CredentialStoreError,
     DatabaseConnectionStore,
-    EncryptedDatabaseSecretStore,
+    EncryptedDatabaseCredentialStore,
     HostedStorageConfig,
     SecretRow,
-    SecretStoreError,
 )
+
+TENANT_A = "tenant_aaaaaaaaaaaaaaaa"
+TENANT_B = "tenant_bbbbbbbbbbbbbbbb"
 
 
 def make_sessions() -> sessionmaker[Session]:
@@ -33,23 +36,23 @@ def keyring(active: str = "key-1", **extra: bytes) -> AesGcmKeyring:
     return AesGcmKeyring(active_key_id=active, keys=keys)
 
 
-def pending(owner: str = "user-a") -> PendingLoginRecord:
+def pending(owner: str = TENANT_A) -> PendingLoginRecord:
     return PendingLoginRecord(
         flow_id="flow_12345678901234567890",
-        owner_subject=owner,
+        tenant_id=owner,
         root_path="/ChatGPT",
         requested_base_url="https://cloud.example.com",
         login_url="https://cloud.example.com/login/v2/flow/abc",
         poll_endpoint="https://cloud.example.com/login/v2/poll",
-        poll_token_ref="sec_poll_1234567890",
+        poll_token_ref="sec_poll_1234567890",  # noqa: S106
         expires_at=datetime.now(UTC) + timedelta(minutes=20),
     )
 
 
-def connection(owner: str = "user-a") -> ConnectionRecord:
+def connection(owner: str = TENANT_A) -> ConnectionRecord:
     return ConnectionRecord(
         connection_id="nc_12345678901234567890",
-        owner_subject=owner,
+        tenant_id=owner,
         base_url="https://cloud.example.com",
         login_name="bridge-user",
         root_path="/ChatGPT",
@@ -64,34 +67,34 @@ def test_database_store_applies_owner_predicate_to_pending_and_connections():
     store.put_pending(pending())
     store.put_connection(connection())
 
-    assert store.get_pending("flow_12345678901234567890", "user-a") is not None
-    assert store.get_pending("flow_12345678901234567890", "user-b") is None
-    assert store.get_connection("nc_12345678901234567890", "user-a") is not None
-    assert store.get_connection("nc_12345678901234567890", "user-b") is None
-    assert len(tuple(store.list_connections("user-a"))) == 1
-    assert tuple(store.list_connections("user-b")) == ()
+    assert store.get_pending("flow_12345678901234567890", TENANT_A) is not None
+    assert store.get_pending("flow_12345678901234567890", TENANT_B) is None
+    assert store.get_connection("nc_12345678901234567890", TENANT_A) is not None
+    assert store.get_connection("nc_12345678901234567890", TENANT_B) is None
+    assert len(tuple(store.list_connections(TENANT_A))) == 1
+    assert tuple(store.list_connections(TENANT_B)) == ()
 
-    store.delete_pending("flow_12345678901234567890", "user-b")
-    store.delete_connection("nc_12345678901234567890", "user-b")
-    assert store.get_pending("flow_12345678901234567890", "user-a") is not None
-    assert store.get_connection("nc_12345678901234567890", "user-a") is not None
+    store.delete_pending("flow_12345678901234567890", TENANT_B)
+    store.delete_connection("nc_12345678901234567890", TENANT_B)
+    assert store.get_pending("flow_12345678901234567890", TENANT_A) is not None
+    assert store.get_connection("nc_12345678901234567890", TENANT_A) is not None
 
 
 def test_database_store_refuses_id_collision_across_tenants():
     sessions = make_sessions()
     store = DatabaseConnectionStore(sessions)
-    store.put_connection(connection("user-a"))
+    store.put_connection(connection(TENANT_A))
 
     with pytest.raises(RuntimeError, match="collision"):
-        store.put_connection(connection("user-b"))
+        store.put_connection(connection(TENANT_B))
 
 
 def test_encrypted_secret_store_never_persists_plaintext_and_round_trips():
     sessions = make_sessions()
-    store = EncryptedDatabaseSecretStore(sessions, keyring())
-    secret_value = "nextcloud-app-password-value"
+    store = EncryptedDatabaseCredentialStore(sessions, keyring())
+    secret_value = "nextcloud-app-password-value"  # noqa: S105
 
-    secret_ref = store.put(SecretStr(secret_value))
+    secret_ref = store.put(TENANT_A, SecretStr(secret_value))
 
     with sessions() as session:
         row = session.get(SecretRow, secret_ref)
@@ -99,16 +102,18 @@ def test_encrypted_secret_store_never_persists_plaintext_and_round_trips():
         assert secret_value.encode() not in row.ciphertext
         assert len(row.nonce) == 12
         assert row.key_id == "key-1"
+        assert row.tenant_id == TENANT_A
 
-    restored = store.get(secret_ref)
+    restored = store.get(TENANT_A, secret_ref)
     assert restored is not None
     assert restored.get_secret_value() == secret_value
+    assert store.get(TENANT_B, secret_ref) is None
 
 
 def test_encrypted_secret_store_detects_ciphertext_tampering():
     sessions = make_sessions()
-    store = EncryptedDatabaseSecretStore(sessions, keyring())
-    secret_ref = store.put(SecretStr("secret-value"))
+    store = EncryptedDatabaseCredentialStore(sessions, keyring())
+    secret_ref = store.put(TENANT_A, SecretStr("secret-value"))
 
     with sessions() as session:
         row = session.get(SecretRow, secret_ref)
@@ -118,23 +123,23 @@ def test_encrypted_secret_store_detects_ciphertext_tampering():
         row.ciphertext = bytes(modified)
         session.commit()
 
-    with pytest.raises(SecretStoreError, match="authenticated decryption"):
-        store.get(secret_ref)
+    with pytest.raises(CredentialStoreError, match="authenticated decryption"):
+        store.get(TENANT_A, secret_ref)
 
 
 def test_keyring_supports_reading_old_key_while_new_writes_use_active_key():
     sessions = make_sessions()
-    old_store = EncryptedDatabaseSecretStore(sessions, keyring())
-    old_ref = old_store.put(SecretStr("old-secret"))
+    old_store = EncryptedDatabaseCredentialStore(sessions, keyring())
+    old_ref = old_store.put(TENANT_A, SecretStr("old-secret"))
 
     rotated = AesGcmKeyring(
         active_key_id="key-2",
         keys={"key-1": b"1" * 32, "key-2": b"2" * 32},
     )
-    new_store = EncryptedDatabaseSecretStore(sessions, rotated)
+    new_store = EncryptedDatabaseCredentialStore(sessions, rotated)
 
-    assert new_store.get(old_ref).get_secret_value() == "old-secret"  # type: ignore[union-attr]
-    new_ref = new_store.put(SecretStr("new-secret"))
+    assert new_store.get(TENANT_A, old_ref).get_secret_value() == "old-secret"  # type: ignore[union-attr]
+    new_ref = new_store.put(TENANT_A, SecretStr("new-secret"))
     with sessions() as session:
         row = session.get(SecretRow, new_ref)
         assert row is not None
@@ -146,7 +151,7 @@ def test_hosted_storage_config_requires_postgres_and_redacts_secrets():
     keys_json = '{"primary":"' + encoded + '"}'
     config = HostedStorageConfig(
         BRIDGE_DATABASE_URL="postgresql+psycopg://dbuser:dbpassword@db.example/bridge",
-        BRIDGE_SECRET_ACTIVE_KEY_ID="primary",
+        BRIDGE_SECRET_ACTIVE_KEY_ID="primary",  # noqa: S106
         BRIDGE_SECRET_KEYS_JSON=keys_json,
     )
 
@@ -159,6 +164,8 @@ def test_hosted_storage_config_requires_postgres_and_redacts_secrets():
     with pytest.raises(ValidationError, match="PostgreSQL"):
         HostedStorageConfig(
             BRIDGE_DATABASE_URL="sqlite:///bridge.db",
-            BRIDGE_SECRET_ACTIVE_KEY_ID="primary",
+            BRIDGE_SECRET_ACTIVE_KEY_ID="primary",  # noqa: S106
             BRIDGE_SECRET_KEYS_JSON=keys_json,
         )
+
+

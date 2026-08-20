@@ -18,7 +18,7 @@ class FakeWebDAVClient:
         self.uploads: list[tuple[str, bytes, bool]] = []
         self.deleted: list[str] = []
 
-    def __enter__(self) -> "FakeWebDAVClient":
+    def __enter__(self) -> FakeWebDAVClient:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -84,7 +84,7 @@ def _settings() -> Settings:
         NEXTCLOUD_APP_PASSWORD="test-app-password",  # noqa: S106
         NEXTCLOUD_ROOT_PATH="/ChatGPT",
         NEXTCLOUD_VERIFY_TLS=True,
-        NEXTCLOUD_MAX_TRANSFER_BYTES=64,
+        NEXTCLOUD_MAX_TRANSFER_BYTES=1024,
     )
 
 

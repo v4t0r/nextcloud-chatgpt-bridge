@@ -9,16 +9,17 @@ from pydantic import BaseModel
 import nextcloud_chatgpt_bridge.server as core
 from nextcloud_chatgpt_bridge.auth import HostedAuthConfig, build_mcp_auth
 from nextcloud_chatgpt_bridge.connections.models import (
-    ConnectStart,
+    ConnectionStatus,
     ConnectionSummary,
+    ConnectStart,
     DisconnectResult,
 )
 from nextcloud_chatgpt_bridge.connections.service import ConnectionError, ConnectionService
-from nextcloud_chatgpt_bridge.runtime import HostedSettingsResolver, current_oauth_subject
+from nextcloud_chatgpt_bridge.runtime import HostedSettingsResolver, current_session_context
 
 
 class ConnectionPollResult(BaseModel):
-    status: Literal["pending", "connected"]
+    status: Literal[ConnectionStatus.PENDING, ConnectionStatus.CONNECTED]
     connection: ConnectionSummary | None = None
 
 
@@ -103,8 +104,9 @@ def create_hosted_mcp(
 ) -> MCPServer:
     """Create the OAuth-protected public/plugin MCP server.
 
-    The caller supplies production-safe connection/secret stores. This factory intentionally does
-    not instantiate the in-memory development stores.
+    The caller supplies a production-safe service composed with
+    `build_hosted_connection_service`. This factory intentionally does not instantiate the
+    in-memory development stores.
     """
     auth_settings, token_verifier = build_mcp_auth(auth_config)
     mcp = MCPServer(
@@ -136,7 +138,7 @@ def create_hosted_mcp(
         """Start Nextcloud Login Flow v2 and return the user's Nextcloud login URL."""
         try:
             return connection_service.begin_connection(
-                owner_subject=current_oauth_subject(),
+                context=current_session_context(),
                 base_url=base_url,
                 root_path=root_path,
             )
@@ -156,12 +158,15 @@ def create_hosted_mcp(
         """Poll a previously started Login Flow. Does not expose the Nextcloud app password."""
         try:
             connection = connection_service.poll_connection(
-                owner_subject=current_oauth_subject(),
+                context=current_session_context(),
                 flow_id=flow_id,
             )
             if connection is None:
-                return ConnectionPollResult(status="pending")
-            return ConnectionPollResult(status="connected", connection=connection)
+                return ConnectionPollResult(status=ConnectionStatus.PENDING)
+            return ConnectionPollResult(
+                status=ConnectionStatus.CONNECTED,
+                connection=connection,
+            )
         except Exception as exc:
             raise _connection_error(exc) from exc
 
@@ -176,7 +181,7 @@ def create_hosted_mcp(
     def list_nextcloud_connections() -> list[ConnectionSummary]:
         """List credential-free Nextcloud connection metadata for the authenticated user."""
         try:
-            return connection_service.list_connections(owner_subject=current_oauth_subject())
+            return connection_service.list_connections(context=current_session_context())
         except Exception as exc:
             raise _connection_error(exc) from exc
 
@@ -193,7 +198,7 @@ def create_hosted_mcp(
         """Change the bridge-enforced root folder for one owned Nextcloud connection."""
         try:
             return connection_service.update_root_path(
-                owner_subject=current_oauth_subject(),
+                context=current_session_context(),
                 connection_id=connection_id,
                 root_path=root_path,
             )
@@ -213,7 +218,7 @@ def create_hosted_mcp(
         """Disconnect and attempt to revoke the generated app password at Nextcloud."""
         try:
             return connection_service.disconnect(
-                owner_subject=current_oauth_subject(),
+                context=current_session_context(),
                 connection_id=connection_id,
             )
         except Exception as exc:

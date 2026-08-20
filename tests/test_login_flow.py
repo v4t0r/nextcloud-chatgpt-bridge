@@ -7,7 +7,6 @@ import pytest
 
 from nextcloud_chatgpt_bridge.connections.login_flow import LoginFlowClient, LoginFlowError
 
-
 BASE = "https://cloud.example.com/nextcloud"
 
 
@@ -139,3 +138,4 @@ def test_https_is_required_by_default():
     with LoginFlowClient(transport=httpx.MockTransport(lambda request: httpx.Response(500))) as client:
         with pytest.raises(LoginFlowError, match="HTTPS"):
             client.initiate("http://cloud.example.com")
+

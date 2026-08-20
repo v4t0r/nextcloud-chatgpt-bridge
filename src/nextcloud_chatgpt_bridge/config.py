@@ -49,9 +49,10 @@ class Settings(BaseSettings):
         return normalize_root_path(value)
 
     @model_validator(mode="after")
-    def enforce_encrypted_transport(self) -> "Settings":
+    def enforce_encrypted_transport(self) -> Settings:
         if self.nextcloud_base_url.scheme != "https" and not self.allow_insecure_http:
             raise ValueError(
                 "NEXTCLOUD_BASE_URL must use HTTPS unless NEXTCLOUD_ALLOW_INSECURE_HTTP=true"
             )
         return self
+

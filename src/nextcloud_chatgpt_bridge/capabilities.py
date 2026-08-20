@@ -39,7 +39,11 @@ def _all_keys(value: Any) -> set[str]:
                 if isinstance(child, (dict, list)):
                     stack.append(child)
         elif isinstance(current, list):
-            stack.extend(child for child in current if isinstance(child, (dict, list)))
+            for child in current:
+                if isinstance(child, (dict, list)):
+                    stack.append(child)
+                elif isinstance(child, str):
+                    keys.add(child.lower())
 
     return keys
 

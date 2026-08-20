@@ -2,12 +2,16 @@
 
 ## Current status
 
-This project is under active development and not yet intended for production use.
+This project is under active development and not yet intended for production use. The hosted multi-user identity, connection and encrypted-storage foundations are implemented; infrastructure and operational release gates remain.
 
 ## Security principles
 
 - Least privilege by default.
 - Never commit passwords, app passwords, cookies, OAuth tokens, session tokens, API keys or private keys.
+- Keep the ChatGPT/Codex-to-bridge identity boundary separate from bridge-to-Nextcloud credentials.
+- Derive tenant scope only from a verified OAuth/OIDC issuer and subject, never from tool input.
+- Resolve a fresh immutable bridge session context for each authenticated MCP request.
+- Apply tenant predicates to metadata and credential reads, writes and deletes.
 - Prefer a dedicated Nextcloud service user with access restricted to a dedicated root such as `/ChatGPT`.
 - Refuse account-root access by default.
 - Reject path traversal outside the configured root before network access.
@@ -38,28 +42,52 @@ Native tool invocation is a separate future capability and must not be enabled m
 
 Local development uses environment variables or a `.env` file that must never be committed. `.env.example` contains placeholders only.
 
-For a future public deployment, credentials must be stored by the deployment platform or secret manager, not inside prompts or repository files.
+Hosted account connection uses Nextcloud Login Flow v2. The user authenticates directly with Nextcloud; the bridge receives a generated app password and never asks for the user's Nextcloud password.
 
-## Public multi-tenant deployment blocker
+Connection metadata stores only an opaque `credential_ref`. The credential-store interface requires both the pseudonymous tenant ID and credential reference for every operation. The included PostgreSQL implementation:
 
-The current network model assumes the bridge operator controls the configured Nextcloud URL. A hosted multi-tenant service that accepts arbitrary Nextcloud URLs would create an SSRF boundary and therefore **must not be released** until it has deterministic outbound-network controls.
+- encrypts credentials with AES-256-GCM
+- binds tenant ID, credential reference, key ID and format version as authenticated data
+- supports key rotation through bounded key IDs
+- never returns another tenant's credential, even if its reference is supplied
+- deletes local credentials during disconnect even when remote revocation fails
 
-At minimum, a hosted release needs:
+Deployment encryption keys and database credentials remain outside the repository. A managed KMS/HSM envelope-encryption integration is still recommended before public production use.
 
-- URL scheme/hostname validation
-- DNS resolution and rebinding protection
-- private/link-local/metadata-network policy appropriate to the deployment model
-- redirect policy that never forwards credentials to a different origin
-- outbound egress restrictions where technically available
-- per-tenant secret isolation
-- authenticated/authorized public MCP transport
+## Bridge identity and tenant isolation
+
+The hosted MCP token verifier pins signature algorithm, issuer, audience, expiry and required scopes. A request-scoped `BridgeSessionContext` is created from the verified token. Its tenant ID is a stable pseudonymous SHA-256 digest of the exact OIDC issuer and subject pair.
+
+This design prevents same-value `sub` claims from different issuers from sharing data if multi-issuer authentication is introduced later. Connection and pending-flow IDs return the same not-found behavior for missing and foreign tenants. No process-global user identity or Nextcloud credential is cached between requests.
+
+## Public multi-tenant network boundary
+
+Hosted mode accepts user-supplied Nextcloud URLs and therefore creates an SSRF boundary. Application preflight validation is implemented, but a public service **must not be released** until deterministic outbound-network controls duplicate that policy after DNS resolution and at connection time.
+
+Implemented application controls include:
+
+- HTTPS-only hosted targets and allowed-port policy
+- rejection of embedded credentials, query strings and fragments
+- rejection of localhost, private, loopback, link-local, reserved and other non-global addresses
+- same-origin Login Flow URLs and completion server validation
+- no credential-bearing redirects in the native MCP probe
+- per-tenant metadata and encrypted credential isolation
+- OAuth/OIDC-protected hosted MCP construction
+
+Remaining public release gates include:
+
+- DNS-rebinding-safe outbound proxy/firewall/resolver enforcement
+- rate limits and abuse controls
+- secret-free audit logging
+- privacy, retention and deletion policy enforcement
+- production process management and deployment monitoring
 - rate limits, auditability and abuse controls
 
 Self-hosted users may legitimately run Nextcloud on private networks, so these hosted-service controls must not be confused with the local deployment policy.
 
 ## Public MCP transport
 
-The current Streamable HTTP mode binds to loopback by default and is a development transport. It is not approved for direct internet exposure. Production deployment requires a proper MCP authorization layer, TLS termination, host/origin protection and production process management.
+The local Streamable HTTP mode binds to loopback and remains a development transport. The hosted server factory adds OAuth/OIDC resource-server validation and stateless request identity, but it is not a complete deployment. Public exposure still requires TLS termination, host/origin protection, trusted proxy configuration, rate limits and production process management.
 
 ## Reporting vulnerabilities
 

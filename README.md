@@ -1,10 +1,10 @@
 # nextcloud-chatgpt-bridge
 
-Open-source, MCP-first bridge connecting ChatGPT with Nextcloud.
+Open-source bridge for a public **Nextcloud for ChatGPT & Codex** app, with an MCP-first core and standards-based Nextcloud providers.
 
 ## Goal
 
-Provide a reusable connector that lets ChatGPT work with Nextcloud files first, then calendars, contacts, shares and selected Nextcloud apps. Native Nextcloud MCP/API capabilities are preferred when available; WebDAV, CalDAV and CardDAV remain standards-based fallback providers.
+Provide a reusable multi-user connector that lets ChatGPT and Codex work with each user's connected Nextcloud account. Native Nextcloud MCP/API capabilities are preferred when available; WebDAV, CalDAV and CardDAV remain standards-based fallback providers.
 
 ## Current status
 
@@ -23,24 +23,40 @@ Private development repository. The project now has:
 - in-memory MCP integration tests
 - sanitized live diagnostics with an explicit opt-in write smoke test
 - successful live validation against Nextcloud 33.0.7 using the WebDAV/OCS fallback path
+- OAuth/OIDC-protected hosted MCP server factory
+- Nextcloud Login Flow v2 account connection without collecting the user's Nextcloud password
+- request-scoped bridge identity/session context with issuer-scoped pseudonymous tenant IDs
+- tenant-scoped connection metadata and credential-store interfaces
+- explicit `pending`, `connected` and `disconnected` connection states
+- encrypted PostgreSQL credential storage with tenant-bound AES-GCM authentication data
+- versioned database migration, startup schema verification and orphan-secret maintenance
+- multi-user isolation and hosted-storage tests
 
-The next milestone is an end-to-end ChatGPT-to-bridge MCP connection. Production-grade public MCP authentication and hosted-service SSRF controls remain explicit release blockers.
+The public-app backend foundation is implemented, but the service is not production-ready. Infrastructure-enforced outbound network policy, rate limits, audit/privacy controls, deployment wiring and an end-to-end ChatGPT/Codex OAuth test remain release gates.
 
 ## Planned architecture
 
 ```text
-ChatGPT
-   |
-   v
-MCP / ChatGPT App
-   |
-   v
-Nextcloud Bridge
-   |-- Native Nextcloud MCP / Context Agent
-   |-- WebDAV provider (files)
-   |-- CalDAV provider (calendar)
-   |-- CardDAV provider (contacts)
-   `-- OCS / Nextcloud APIs (shares and app capabilities)
+ChatGPT / Codex
+       |
+       | OAuth access token
+       v
+Public MCP / App boundary
+       |
+       | request-scoped BridgeSessionContext
+       v
+ConnectionService
+       |-- tenant-scoped metadata store
+       `-- tenant-scoped encrypted credential store
+       |
+       | per-request Nextcloud settings
+       v
+Existing provider core
+       |-- Native Nextcloud MCP / Context Agent
+       |-- WebDAV provider (files)
+       |-- CalDAV provider (calendar, planned)
+       |-- CardDAV provider (contacts, planned)
+       `-- OCS / Nextcloud APIs
 ```
 
 ## Current MCP tools
@@ -62,17 +78,32 @@ Write / modify:
 - `move_file`
 - `delete_file`
 
-See [docs/MCP.md](docs/MCP.md) for startup, transport and security details.
+Hosted account connection:
+
+- `begin_nextcloud_connection`
+- `poll_nextcloud_connection`
+- `list_nextcloud_connections`
+- `set_nextcloud_root`
+- `disconnect_nextcloud`
+
+See [docs/MCP.md](docs/MCP.md) for core tools and [docs/AUTH_ARCHITECTURE.md](docs/AUTH_ARCHITECTURE.md) for public-app identity, connection and credential boundaries.
 
 ## Security defaults
 
-- dedicated Nextcloud service user recommended
+- bridge OAuth identity and Nextcloud credentials are separate security domains
+- hosted requests derive a fresh immutable session context from the verified access token
+- tenant IDs are pseudonymous hashes of the verified issuer and subject
+- every connection and credential lookup is tenant-scoped
+- Nextcloud app passwords are referenced from metadata, never embedded in it
+- production credential storage encrypts at rest with tenant-bound AES-256-GCM
+- dedicated Nextcloud service user recommended for stronger Nextcloud-side isolation
 - access restricted to a configured root such as `/ChatGPT`
 - account-root access refused by default
 - parent-path traversal rejected before network access
 - out-of-root WebDAV `href` values discarded
 - HTTPS required by default; TLS verification enabled by default
-- credentials loaded from environment variables / local `.env`
+- local mode loads credentials from environment variables / local `.env`
+- hosted mode uses Nextcloud Login Flow v2 and never asks for the user's Nextcloud password
 - secrets must never be committed
 - overwrite disabled by default
 - configured root can never be deleted
@@ -80,7 +111,8 @@ See [docs/MCP.md](docs/MCP.md) for startup, transport and security details.
 - remote response bodies are not reflected into MCP error messages
 - native MCP probing invokes discovery only, never a remote native tool
 - native MCP bearer-token requests do not follow redirects
-- Streamable HTTP binds to `127.0.0.1` by default and is not considered public-deployment ready
+- local Streamable HTTP binds to `127.0.0.1` by default
+- hosted deployment still requires infrastructure egress controls, rate limits and operational hardening
 
 See [SECURITY.md](SECURITY.md).
 
@@ -95,6 +127,8 @@ pip install -e ".[dev]"
 pytest
 ruff check .
 ```
+
+Install `.[hosted]` for PostgreSQL-backed connection metadata and encrypted credential storage. Hosted secrets and database URLs are deployment configuration and must never be committed.
 
 Copy `.env.example` to `.env` only for local testing and replace placeholders with a dedicated Nextcloud account/app password.
 
@@ -132,14 +166,14 @@ The first live validation passed against Nextcloud 33.0.7 with OCS, WebDAV read/
 
 1. project bootstrap and CI — implemented
 2. WebDAV files MVP — implemented and live-validated
-3. MCP tool layer — implemented; end-to-end ChatGPT connection pending
-4. native Nextcloud capability/MCP detection — implemented; fallback live-validated
-5. production MCP authentication / deployment boundary
-6. search, shares, tags and versions
-7. CalDAV calendar support
-8. CardDAV contacts support
-9. additional Nextcloud apps
-10. security review and public release
+3. MCP tool layer - implemented
+4. native Nextcloud capability/MCP detection - implemented; fallback live-validated
+5. public multi-user connection/auth/storage foundation - implemented; deployment integration pending
+6. infrastructure egress enforcement, rate limiting and audit/privacy controls
+7. end-to-end ChatGPT/Codex OAuth and account-connection validation
+8. search, shares, tags and versions
+9. CalDAV and CardDAV support
+10. security review, app submission and public release
 
 ## License
 

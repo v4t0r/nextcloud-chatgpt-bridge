@@ -14,7 +14,17 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from sqlalchemy import Boolean, DateTime, Index, LargeBinary, String, Text, create_engine, delete, select
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Index,
+    LargeBinary,
+    String,
+    Text,
+    create_engine,
+    delete,
+    select,
+)
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
@@ -29,7 +39,7 @@ class PersistenceError(RuntimeError):
     pass
 
 
-class SecretStoreError(PersistenceError):
+class CredentialStoreError(PersistenceError):
     pass
 
 
@@ -41,7 +51,7 @@ class PendingLoginRow(Base):
     __tablename__ = "pending_nextcloud_logins"
 
     flow_id: Mapped[str] = mapped_column(String(256), primary_key=True)
-    owner_subject: Mapped[str] = mapped_column(String(512), nullable=False)
+    tenant_id: Mapped[str] = mapped_column(String(256), nullable=False)
     root_path: Mapped[str] = mapped_column(Text, nullable=False)
     requested_base_url: Mapped[str] = mapped_column(Text, nullable=False)
     login_url: Mapped[str] = mapped_column(Text, nullable=False)
@@ -50,14 +60,14 @@ class PendingLoginRow(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    __table_args__ = (Index("ix_pending_login_owner", "owner_subject"),)
+    __table_args__ = (Index("ix_pending_login_tenant", "tenant_id"),)
 
 
 class ConnectionRow(Base):
     __tablename__ = "nextcloud_connections"
 
     connection_id: Mapped[str] = mapped_column(String(256), primary_key=True)
-    owner_subject: Mapped[str] = mapped_column(String(512), nullable=False)
+    tenant_id: Mapped[str] = mapped_column(String(256), nullable=False)
     base_url: Mapped[str] = mapped_column(Text, nullable=False)
     login_name: Mapped[str] = mapped_column(String(512), nullable=False)
     root_path: Mapped[str] = mapped_column(Text, nullable=False)
@@ -65,17 +75,20 @@ class ConnectionRow(Base):
     verify_tls: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    __table_args__ = (Index("ix_nextcloud_connection_owner", "owner_subject"),)
+    __table_args__ = (Index("ix_nextcloud_connection_tenant", "tenant_id"),)
 
 
 class SecretRow(Base):
     __tablename__ = "bridge_secrets"
 
     secret_ref: Mapped[str] = mapped_column(String(256), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(256), nullable=False)
     key_id: Mapped[str] = mapped_column(String(64), nullable=False)
     nonce: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     ciphertext: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_bridge_secret_tenant", "tenant_id"),)
 
 
 class HostedStorageConfig(BaseSettings):
@@ -98,7 +111,7 @@ class HostedStorageConfig(BaseSettings):
     secret_keys_json: SecretStr = Field(alias="BRIDGE_SECRET_KEYS_JSON")
 
     @model_validator(mode="after")
-    def validate_hosted_storage(self) -> "HostedStorageConfig":
+    def validate_hosted_storage(self) -> HostedStorageConfig:
         if not _KEY_ID_RE.fullmatch(self.secret_active_key_id):
             raise ValueError("BRIDGE_SECRET_ACTIVE_KEY_ID contains unsupported characters")
         try:
@@ -131,7 +144,7 @@ class AesGcmKeyring:
         object.__setattr__(self, "keys", normalized)
 
     @classmethod
-    def from_json(cls, active_key_id: str, encoded_json: SecretStr) -> "AesGcmKeyring":
+    def from_json(cls, active_key_id: str, encoded_json: SecretStr) -> AesGcmKeyring:
         try:
             raw = json.loads(encoded_json.get_secret_value())
         except json.JSONDecodeError as exc:
@@ -159,10 +172,10 @@ class DatabaseConnectionStore:
     def put_pending(self, record: PendingLoginRecord) -> None:
         with self.session_factory() as session:
             existing = session.get(PendingLoginRow, record.flow_id)
-            if existing is not None and existing.owner_subject != record.owner_subject:
+            if existing is not None and existing.tenant_id != record.tenant_id:
                 raise PersistenceError("Pending flow ID collision")
             row = existing or PendingLoginRow(flow_id=record.flow_id)
-            row.owner_subject = record.owner_subject
+            row.tenant_id = record.tenant_id
             row.root_path = record.root_path
             row.requested_base_url = str(record.requested_base_url)
             row.login_url = str(record.login_url)
@@ -174,22 +187,22 @@ class DatabaseConnectionStore:
                 session.add(row)
             session.commit()
 
-    def get_pending(self, flow_id: str, owner_subject: str) -> PendingLoginRecord | None:
+    def get_pending(self, flow_id: str, tenant_id: str) -> PendingLoginRecord | None:
         with self.session_factory() as session:
             row = session.scalar(
                 select(PendingLoginRow).where(
                     PendingLoginRow.flow_id == flow_id,
-                    PendingLoginRow.owner_subject == owner_subject,
+                    PendingLoginRow.tenant_id == tenant_id,
                 )
             )
             return self._pending_record(row) if row is not None else None
 
-    def delete_pending(self, flow_id: str, owner_subject: str) -> None:
+    def delete_pending(self, flow_id: str, tenant_id: str) -> None:
         with self.session_factory() as session:
             session.execute(
                 delete(PendingLoginRow).where(
                     PendingLoginRow.flow_id == flow_id,
-                    PendingLoginRow.owner_subject == owner_subject,
+                    PendingLoginRow.tenant_id == tenant_id,
                 )
             )
             session.commit()
@@ -197,10 +210,10 @@ class DatabaseConnectionStore:
     def put_connection(self, record: ConnectionRecord) -> None:
         with self.session_factory() as session:
             existing = session.get(ConnectionRow, record.connection_id)
-            if existing is not None and existing.owner_subject != record.owner_subject:
+            if existing is not None and existing.tenant_id != record.tenant_id:
                 raise PersistenceError("Connection ID collision")
             row = existing or ConnectionRow(connection_id=record.connection_id)
-            row.owner_subject = record.owner_subject
+            row.tenant_id = record.tenant_id
             row.base_url = str(record.base_url)
             row.login_name = record.login_name
             row.root_path = record.root_path
@@ -211,31 +224,31 @@ class DatabaseConnectionStore:
                 session.add(row)
             session.commit()
 
-    def get_connection(self, connection_id: str, owner_subject: str) -> ConnectionRecord | None:
+    def get_connection(self, connection_id: str, tenant_id: str) -> ConnectionRecord | None:
         with self.session_factory() as session:
             row = session.scalar(
                 select(ConnectionRow).where(
                     ConnectionRow.connection_id == connection_id,
-                    ConnectionRow.owner_subject == owner_subject,
+                    ConnectionRow.tenant_id == tenant_id,
                 )
             )
             return self._connection_record(row) if row is not None else None
 
-    def list_connections(self, owner_subject: str) -> Iterable[ConnectionRecord]:
+    def list_connections(self, tenant_id: str) -> Iterable[ConnectionRecord]:
         with self.session_factory() as session:
             rows = session.scalars(
                 select(ConnectionRow)
-                .where(ConnectionRow.owner_subject == owner_subject)
+                .where(ConnectionRow.tenant_id == tenant_id)
                 .order_by(ConnectionRow.created_at.asc(), ConnectionRow.connection_id.asc())
             ).all()
             return tuple(self._connection_record(row) for row in rows)
 
-    def delete_connection(self, connection_id: str, owner_subject: str) -> None:
+    def delete_connection(self, connection_id: str, tenant_id: str) -> None:
         with self.session_factory() as session:
             session.execute(
                 delete(ConnectionRow).where(
                     ConnectionRow.connection_id == connection_id,
-                    ConnectionRow.owner_subject == owner_subject,
+                    ConnectionRow.tenant_id == tenant_id,
                 )
             )
             session.commit()
@@ -244,7 +257,7 @@ class DatabaseConnectionStore:
     def _pending_record(row: PendingLoginRow) -> PendingLoginRecord:
         return PendingLoginRecord(
             flow_id=row.flow_id,
-            owner_subject=row.owner_subject,
+            tenant_id=row.tenant_id,
             root_path=row.root_path,
             requested_base_url=row.requested_base_url,
             login_url=row.login_url,
@@ -258,7 +271,7 @@ class DatabaseConnectionStore:
     def _connection_record(row: ConnectionRow) -> ConnectionRecord:
         return ConnectionRecord(
             connection_id=row.connection_id,
-            owner_subject=row.owner_subject,
+            tenant_id=row.tenant_id,
             base_url=row.base_url,
             login_name=row.login_name,
             root_path=row.root_path,
@@ -268,29 +281,30 @@ class DatabaseConnectionStore:
         )
 
 
-class EncryptedDatabaseSecretStore:
-    """AES-256-GCM encrypted secret store backed by SQLAlchemy metadata storage."""
+class EncryptedDatabaseCredentialStore:
+    """Tenant-bound AES-256-GCM credential store backed by SQLAlchemy."""
 
     def __init__(self, session_factory: sessionmaker[Session], keyring: AesGcmKeyring) -> None:
         self.session_factory = session_factory
         self.keyring = keyring
 
-    def put(self, secret: SecretStr) -> str:
+    def put(self, tenant_id: str, secret: SecretStr) -> str:
         plaintext = secret.get_secret_value().encode("utf-8")
         if not plaintext or len(plaintext) > _MAX_SECRET_BYTES:
-            raise SecretStoreError("Secret size is outside the allowed range")
+            raise CredentialStoreError("Secret size is outside the allowed range")
 
         secret_ref = f"sec_{token_urlsafe(32)}"
         key_id = self.keyring.active_key_id
         key = self.keyring.keys[key_id]
         nonce = os.urandom(12)
-        aad = self._aad(secret_ref, key_id)
+        aad = self._aad(tenant_id, secret_ref, key_id)
         ciphertext = AESGCM(key).encrypt(nonce, plaintext, aad)
 
         with self.session_factory() as session:
             session.add(
                 SecretRow(
                     secret_ref=secret_ref,
+                    tenant_id=tenant_id,
                     key_id=key_id,
                     nonce=nonce,
                     ciphertext=ciphertext,
@@ -300,37 +314,50 @@ class EncryptedDatabaseSecretStore:
             session.commit()
         return secret_ref
 
-    def get(self, secret_ref: str) -> SecretStr | None:
+    def get(self, tenant_id: str, secret_ref: str) -> SecretStr | None:
         with self.session_factory() as session:
-            row = session.get(SecretRow, secret_ref)
+            row = session.scalar(
+                select(SecretRow).where(
+                    SecretRow.secret_ref == secret_ref,
+                    SecretRow.tenant_id == tenant_id,
+                )
+            )
             if row is None:
                 return None
             key = self.keyring.keys.get(row.key_id)
             if key is None:
-                raise SecretStoreError("Encryption key for stored secret is unavailable")
+                raise CredentialStoreError("Encryption key for stored secret is unavailable")
             if len(row.nonce) != 12:
-                raise SecretStoreError("Stored secret has invalid encryption metadata")
+                raise CredentialStoreError("Stored secret has invalid encryption metadata")
             try:
                 plaintext = AESGCM(key).decrypt(
                     row.nonce,
                     row.ciphertext,
-                    self._aad(row.secret_ref, row.key_id),
+                    self._aad(row.tenant_id, row.secret_ref, row.key_id),
                 )
                 value = plaintext.decode("utf-8")
             except (InvalidTag, UnicodeError) as exc:
-                raise SecretStoreError("Stored secret failed authenticated decryption") from exc
+                raise CredentialStoreError(
+                    "Stored secret failed authenticated decryption"
+                ) from exc
             return SecretStr(value)
 
-    def delete(self, secret_ref: str) -> None:
+    def delete(self, tenant_id: str, secret_ref: str) -> None:
         with self.session_factory() as session:
-            session.execute(delete(SecretRow).where(SecretRow.secret_ref == secret_ref))
+            session.execute(
+                delete(SecretRow).where(
+                    SecretRow.secret_ref == secret_ref,
+                    SecretRow.tenant_id == tenant_id,
+                )
+            )
             session.commit()
 
     @staticmethod
-    def _aad(secret_ref: str, key_id: str) -> bytes:
+    def _aad(tenant_id: str, secret_ref: str, key_id: str) -> bytes:
         return b"|".join(
             (
                 _SECRET_AAD_VERSION,
+                tenant_id.encode("ascii"),
                 secret_ref.encode("ascii"),
                 key_id.encode("ascii"),
             )
@@ -350,7 +377,7 @@ def create_hosted_engine(config: HostedStorageConfig) -> Engine:
 
 def build_hosted_stores(
     config: HostedStorageConfig,
-) -> tuple[Engine, DatabaseConnectionStore, EncryptedDatabaseSecretStore]:
+) -> tuple[Engine, DatabaseConnectionStore, EncryptedDatabaseCredentialStore]:
     engine = create_hosted_engine(config)
     sessions = sessionmaker(bind=engine, expire_on_commit=False)
     keyring = AesGcmKeyring.from_json(
@@ -360,5 +387,5 @@ def build_hosted_stores(
     return (
         engine,
         DatabaseConnectionStore(sessions),
-        EncryptedDatabaseSecretStore(sessions, keyring),
+        EncryptedDatabaseCredentialStore(sessions, keyring),
     )

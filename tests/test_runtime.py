@@ -17,11 +17,11 @@ class FakeConnectionService:
         self.connections = connections
         self.resolved: list[tuple[str, str]] = []
 
-    def list_connections(self, *, owner_subject: str):
+    def list_connections(self, *, context):
         return self.connections
 
-    def resolve_settings(self, *, owner_subject: str, connection_id: str) -> Settings:
-        self.resolved.append((owner_subject, connection_id))
+    def resolve_settings(self, *, context, connection_id: str) -> Settings:
+        self.resolved.append((context.tenant_id, connection_id))
         return Settings(
             NEXTCLOUD_BASE_URL="https://cloud.example.com",
             NEXTCLOUD_USERNAME="bridge-user",
@@ -30,12 +30,16 @@ class FakeConnectionService:
         )
 
 
-def token(subject: str | None = "user-a") -> AccessToken:
+def token(
+    subject: str | None = "user-a",
+    issuer: str = "https://auth.example.com/",
+) -> AccessToken:
     return AccessToken(
-        token="bearer",
+        token="bearer",  # noqa: S106
         client_id="chatgpt-client",
         scopes=["nextcloud:use"],
         subject=subject,
+        claims={"iss": issuer},
     )
 
 
@@ -56,7 +60,9 @@ def test_hosted_resolver_uses_authenticated_subject_and_single_connection(monkey
     settings = HostedSettingsResolver(service).resolve()  # type: ignore[arg-type]
 
     assert settings.nextcloud_username == "bridge-user"
-    assert service.resolved == [("user-a", "nc_connection_1234567890")]
+    assert service.resolved == [
+        (runtime.current_session_context().tenant_id, "nc_connection_1234567890")
+    ]
 
 
 def test_hosted_resolver_fails_closed_without_authenticated_subject(monkeypatch):
@@ -81,3 +87,17 @@ def test_hosted_resolver_never_guesses_between_multiple_connections(monkeypatch)
 
     with pytest.raises(RuntimeResolutionError, match="explicit connection selection"):
         HostedSettingsResolver(service).resolve()  # type: ignore[arg-type]
+
+
+
+
+def test_session_context_is_issuer_scoped(monkeypatch):
+    first = token()
+    second = token(issuer="https://other-auth.example.com/")
+
+    monkeypatch.setattr(runtime, "get_access_token", lambda: first)
+    first_tenant = runtime.current_session_context().tenant_id
+    monkeypatch.setattr(runtime, "get_access_token", lambda: second)
+    second_tenant = runtime.current_session_context().tenant_id
+
+    assert first_tenant != second_tenant

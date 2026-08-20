@@ -90,7 +90,7 @@ class LoginFlowClient:
     def close(self) -> None:
         self.client.close()
 
-    def __enter__(self) -> "LoginFlowClient":
+    def __enter__(self) -> LoginFlowClient:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -168,3 +168,4 @@ class LoginFlowClient:
             login_name=login_name,
             app_password=SecretStr(app_password),
         )
+

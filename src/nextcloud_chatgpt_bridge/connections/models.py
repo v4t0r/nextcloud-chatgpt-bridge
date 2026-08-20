@@ -1,8 +1,15 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from enum import StrEnum
 
 from pydantic import AnyHttpUrl, BaseModel, Field, SecretStr
+
+
+class ConnectionStatus(StrEnum):
+    PENDING = "pending"
+    CONNECTED = "connected"
+    DISCONNECTED = "disconnected"
 
 
 class LoginFlowChallenge(BaseModel):
@@ -27,7 +34,7 @@ class PendingLoginRecord(BaseModel):
     """Credential-free pending-flow metadata suitable for persistent storage."""
 
     flow_id: str = Field(min_length=16, max_length=256)
-    owner_subject: str = Field(min_length=1, max_length=512)
+    tenant_id: str = Field(min_length=16, max_length=256)
     root_path: str = Field(default="/ChatGPT", min_length=2, max_length=4096)
     requested_base_url: AnyHttpUrl
     login_url: AnyHttpUrl
@@ -39,7 +46,7 @@ class PendingLoginRecord(BaseModel):
 
 class ConnectionRecord(BaseModel):
     connection_id: str = Field(min_length=16, max_length=256)
-    owner_subject: str = Field(min_length=1, max_length=512)
+    tenant_id: str = Field(min_length=16, max_length=256)
     base_url: AnyHttpUrl
     login_name: str = Field(min_length=1, max_length=512)
     root_path: str = Field(default="/ChatGPT", min_length=2, max_length=4096)
@@ -51,6 +58,7 @@ class ConnectionRecord(BaseModel):
 class ConnectStart(BaseModel):
     """Safe response returned to the UI after starting account linking."""
 
+    status: ConnectionStatus = ConnectionStatus.PENDING
     flow_id: str
     login_url: AnyHttpUrl
     expires_at: datetime
@@ -59,6 +67,7 @@ class ConnectStart(BaseModel):
 class ConnectionSummary(BaseModel):
     """Credential-free connection metadata safe to return through MCP/UI."""
 
+    status: ConnectionStatus = ConnectionStatus.CONNECTED
     connection_id: str
     base_url: AnyHttpUrl
     login_name: str
@@ -67,6 +76,7 @@ class ConnectionSummary(BaseModel):
 
 
 class DisconnectResult(BaseModel):
+    status: ConnectionStatus = ConnectionStatus.DISCONNECTED
     connection_id: str
     disconnected: bool = True
     remote_credential_revoked: bool

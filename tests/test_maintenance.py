@@ -12,9 +12,11 @@ from nextcloud_chatgpt_bridge.persistence import (
     AesGcmKeyring,
     Base,
     DatabaseConnectionStore,
-    EncryptedDatabaseSecretStore,
+    EncryptedDatabaseCredentialStore,
     SecretRow,
 )
+
+TENANT_ID = "tenant_aaaaaaaaaaaaaaaa"
 
 
 def make_stores():
@@ -22,7 +24,7 @@ def make_stores():
     Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine, expire_on_commit=False)
     metadata = DatabaseConnectionStore(sessions)
-    secrets = EncryptedDatabaseSecretStore(
+    secrets = EncryptedDatabaseCredentialStore(
         sessions,
         AesGcmKeyring(active_key_id="key-1", keys={"key-1": b"1" * 32}),
     )
@@ -33,11 +35,11 @@ def test_cleanup_removes_expired_poll_and_old_orphan_but_keeps_referenced_and_fr
     sessions, metadata, secrets = make_stores()
     now = datetime.now(UTC)
 
-    expired_poll_ref = secrets.put(SecretStr("expired-poll"))
+    expired_poll_ref = secrets.put(TENANT_ID, SecretStr("expired-poll"))
     metadata.put_pending(
         PendingLoginRecord(
             flow_id="flow_expired_1234567890",
-            owner_subject="user-a",
+            tenant_id=TENANT_ID,
             root_path="/ChatGPT",
             requested_base_url="https://cloud.example.com",
             login_url="https://cloud.example.com/login/v2/flow/old",
@@ -48,11 +50,11 @@ def test_cleanup_removes_expired_poll_and_old_orphan_but_keeps_referenced_and_fr
         )
     )
 
-    referenced_ref = secrets.put(SecretStr("live-app-password"))
+    referenced_ref = secrets.put(TENANT_ID, SecretStr("live-app-password"))
     metadata.put_connection(
         ConnectionRecord(
             connection_id="nc_live_1234567890123456",
-            owner_subject="user-a",
+            tenant_id=TENANT_ID,
             base_url="https://cloud.example.com",
             login_name="bridge-user",
             root_path="/ChatGPT",
@@ -61,8 +63,8 @@ def test_cleanup_removes_expired_poll_and_old_orphan_but_keeps_referenced_and_fr
         )
     )
 
-    orphan_ref = secrets.put(SecretStr("orphan"))
-    fresh_orphan_ref = secrets.put(SecretStr("fresh-orphan"))
+    orphan_ref = secrets.put(TENANT_ID, SecretStr("orphan"))
+    fresh_orphan_ref = secrets.put(TENANT_ID, SecretStr("fresh-orphan"))
     with sessions() as session:
         for secret_ref in (referenced_ref, orphan_ref):
             row = session.get(SecretRow, secret_ref)
@@ -79,8 +81,8 @@ def test_cleanup_removes_expired_poll_and_old_orphan_but_keeps_referenced_and_fr
     assert report.expired_pending_flows == 1
     assert report.expired_poll_secrets == 1
     assert report.orphan_secrets == 1
-    assert metadata.get_pending("flow_expired_1234567890", "user-a") is None
-    assert secrets.get(expired_poll_ref) is None
-    assert secrets.get(orphan_ref) is None
-    assert secrets.get(referenced_ref).get_secret_value() == "live-app-password"  # type: ignore[union-attr]
-    assert secrets.get(fresh_orphan_ref).get_secret_value() == "fresh-orphan"  # type: ignore[union-attr]
+    assert metadata.get_pending("flow_expired_1234567890", TENANT_ID) is None
+    assert secrets.get(TENANT_ID, expired_poll_ref) is None
+    assert secrets.get(TENANT_ID, orphan_ref) is None
+    assert secrets.get(TENANT_ID, referenced_ref).get_secret_value() == "live-app-password"  # type: ignore[union-attr]
+    assert secrets.get(TENANT_ID, fresh_orphan_ref).get_secret_value() == "fresh-orphan"  # type: ignore[union-attr]

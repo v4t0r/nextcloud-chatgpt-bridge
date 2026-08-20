@@ -53,7 +53,7 @@ class WebDAVClient:
     def close(self) -> None:
         self.client.close()
 
-    def __enter__(self) -> "WebDAVClient":
+    def __enter__(self) -> WebDAVClient:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -207,3 +207,4 @@ class WebDAVClient:
                 )
             )
         return result
+

@@ -53,7 +53,7 @@ class OCSClient:
     def close(self) -> None:
         self.client.close()
 
-    def __enter__(self) -> "OCSClient":
+    def __enter__(self) -> OCSClient:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -93,3 +93,4 @@ class OCSClient:
                 raise OCSError(
                     f"Nextcloud app-password revocation returned HTTP {response.status_code}"
                 )
+
