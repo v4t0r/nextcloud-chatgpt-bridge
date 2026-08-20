@@ -13,7 +13,7 @@ from nextcloud_chatgpt_bridge.connections.models import (
     PendingLoginRecord,
 )
 from nextcloud_chatgpt_bridge.connections.store import ConnectionStore, SecretStore
-from nextcloud_chatgpt_bridge.providers.ocs import OCSClient, OCSError
+from nextcloud_chatgpt_bridge.providers.ocs import OCSClient
 
 
 class ConnectionError(RuntimeError):
@@ -158,12 +158,13 @@ class ConnectionService:
         owner_subject: str,
         connection_id: str,
     ) -> DisconnectResult:
+        """Disconnect locally even if remote app-password revocation unexpectedly fails."""
         record = self._get_owned_record(owner_subject, connection_id)
         secret = self.secret_store.get(record.credential_ref)
         revoked = False
 
-        if secret is not None:
-            try:
+        try:
+            if secret is not None:
                 settings = self.resolve_settings(
                     owner_subject=owner_subject,
                     connection_id=connection_id,
@@ -171,13 +172,15 @@ class ConnectionService:
                 with OCSClient(settings) as ocs:
                     ocs.delete_app_password()
                 revoked = True
-            except (ConnectionError, OCSError):
-                # Local disconnect must still complete. The user can independently revoke the
-                # app password in Nextcloud if the remote revocation endpoint is unavailable.
-                revoked = False
+        except Exception:
+            # Remote revocation is best-effort. Never let a network/library/server failure
+            # prevent local credential deletion. Users can also revoke the app password in
+            # Nextcloud's security settings if this flag returns false.
+            revoked = False
+        finally:
+            self.secret_store.delete(record.credential_ref)
+            self.connection_store.delete_connection(connection_id)
 
-        self.secret_store.delete(record.credential_ref)
-        self.connection_store.delete_connection(connection_id)
         return DisconnectResult(
             connection_id=connection_id,
             remote_credential_revoked=revoked,
