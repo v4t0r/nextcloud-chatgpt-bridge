@@ -8,7 +8,18 @@ Provide a reusable connector that lets ChatGPT work with Nextcloud files first, 
 
 ## Current status
 
-Early development. The repository is private while the architecture, authentication model and security boundaries are being validated.
+Private development repository. The project now has:
+
+- project bootstrap and CI
+- validated runtime configuration
+- root-folder security boundaries
+- WebDAV file provider
+- MCP Python SDK v2 server
+- structured file tools with read/write risk annotations
+- text and small-binary transfer limits
+- in-memory MCP integration tests
+
+The next milestone is a live test against a dedicated Nextcloud account, followed by native Nextcloud capability detection and production-grade MCP authentication.
 
 ## Planned architecture
 
@@ -27,16 +38,40 @@ Nextcloud Bridge
    `-- OCS / Nextcloud APIs (shares and app capabilities)
 ```
 
+## Current MCP file tools
+
+Read-only:
+
+- `list_files`
+- `get_file_info`
+- `read_text_file`
+- `download_file_base64`
+
+Write / modify:
+
+- `write_text_file`
+- `upload_file_base64`
+- `create_folder`
+- `move_file`
+- `delete_file`
+
+See [docs/MCP.md](docs/MCP.md) for startup, transport and security details.
+
 ## Security defaults
 
 - dedicated Nextcloud service user recommended
 - access restricted to a configured root such as `/ChatGPT`
 - account-root access refused by default
-- parent-path traversal rejected
+- parent-path traversal rejected before network access
+- out-of-root WebDAV `href` values discarded
 - TLS verification enabled by default
 - credentials loaded from environment variables / local `.env`
 - secrets must never be committed
-- destructive operations will remain separate capabilities
+- overwrite disabled by default
+- configured root can never be deleted
+- file-transfer size limits enforced
+- WebDAV response bodies are not reflected into MCP error messages
+- Streamable HTTP binds to `127.0.0.1` by default and is not considered public-deployment ready
 
 See [SECURITY.md](SECURITY.md).
 
@@ -54,17 +89,30 @@ ruff check .
 
 Copy `.env.example` to `.env` only for local testing and replace placeholders with a dedicated Nextcloud account/app password.
 
+Run the MCP server over stdio:
+
+```bash
+nextcloud-chatgpt-bridge
+```
+
+or:
+
+```bash
+python -m nextcloud_chatgpt_bridge
+```
+
 ## Roadmap
 
-1. project bootstrap and CI
-2. WebDAV files MVP
-3. MCP tool layer
+1. project bootstrap and CI — implemented
+2. WebDAV files MVP — implemented
+3. MCP tool layer — implemented, pending live Nextcloud validation
 4. native Nextcloud capability detection
-5. search, shares, tags and versions
-6. CalDAV calendar support
-7. CardDAV contacts support
-8. additional Nextcloud apps
-9. security review and public release
+5. production MCP authentication / deployment boundary
+6. search, shares, tags and versions
+7. CalDAV calendar support
+8. CardDAV contacts support
+9. additional Nextcloud apps
+10. security review and public release
 
 ## License
 
