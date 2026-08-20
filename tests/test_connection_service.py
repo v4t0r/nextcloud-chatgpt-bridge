@@ -187,3 +187,31 @@ def test_disconnect_revokes_remote_credential_then_removes_local_secret(monkeypa
     assert revoked == ["yes"]
     assert store.get_connection(completed.connection_id) is None
     assert secrets.get(record.credential_ref) is None
+
+
+def test_disconnect_still_purges_local_secret_on_unexpected_remote_failure(monkeypatch):
+    service, store, secrets, _ = make_service()
+    _, completed = connect(service)
+    record = store.get_connection(completed.connection_id)
+    assert record is not None
+
+    class ExplodingOCSClient:
+        def __init__(self, settings):
+            pass
+
+        def __enter__(self):
+            raise RuntimeError("unexpected library failure")
+
+        def __exit__(self, exc_type, exc, tb):
+            return None
+
+    monkeypatch.setattr(service_module, "OCSClient", ExplodingOCSClient)
+
+    result = service.disconnect(
+        owner_subject="user-a",
+        connection_id=completed.connection_id,
+    )
+
+    assert result.remote_credential_revoked is False
+    assert store.get_connection(completed.connection_id) is None
+    assert secrets.get(record.credential_ref) is None
