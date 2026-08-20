@@ -28,23 +28,38 @@ class DiagnosticResult:
     write_test_requested: bool = False
     write_test_ok: bool | None = None
     cleanup_ok: bool | None = None
+    failed_stages: list[str] | None = None
+
+    @property
+    def successful(self) -> bool:
+        if not self.ocs_ok or not self.webdav_ok:
+            return False
+        if self.write_test_requested and self.write_test_ok is not True:
+            return False
+        return True
 
 
 async def run_diagnostics(*, write_test: bool = False) -> DiagnosticResult:
     """Run sanitized live checks. Native MCP discovery never invokes a remote native tool."""
     settings = Settings()
-    result = DiagnosticResult(write_test_requested=write_test)
+    result = DiagnosticResult(write_test_requested=write_test, failed_stages=[])
 
-    with OCSClient(settings) as ocs:
-        data = ocs.get_capabilities()
-    report = build_capability_report(settings, data)
-    result.ocs_ok = True
-    result.nextcloud_version = report.nextcloud_version
+    try:
+        with OCSClient(settings) as ocs:
+            data = ocs.get_capabilities()
+        report = build_capability_report(settings, data)
+        result.ocs_ok = True
+        result.nextcloud_version = report.nextcloud_version
+    except Exception:
+        result.failed_stages.append("ocs_capabilities")
 
-    with WebDAVClient(settings) as webdav:
-        root_entries = webdav.list_files("")
-    result.webdav_ok = True
-    result.root_entries = len(root_entries)
+    try:
+        with WebDAVClient(settings) as webdav:
+            root_entries = webdav.list_files("")
+        result.webdav_ok = True
+        result.root_entries = len(root_entries)
+    except Exception:
+        result.failed_stages.append("webdav_read")
 
     try:
         native = await probe_context_agent_mcp(settings)
@@ -56,7 +71,11 @@ async def run_diagnostics(*, write_test: bool = False) -> DiagnosticResult:
         result.native_mcp_tool_count = len(native.tool_names)
 
     if write_test:
-        await asyncio.to_thread(_run_write_smoke_test, settings, result)
+        try:
+            await asyncio.to_thread(_run_write_smoke_test, settings, result)
+        except Exception:
+            result.write_test_ok = False
+            result.failed_stages.append("webdav_write")
 
     return result
 
@@ -113,6 +132,7 @@ def main() -> None:
 
     result = asyncio.run(run_diagnostics(write_test=args.write_test))
     print(json.dumps(asdict(result), indent=2, sort_keys=True))
+    raise SystemExit(0 if result.successful else 1)
 
 
 if __name__ == "__main__":
