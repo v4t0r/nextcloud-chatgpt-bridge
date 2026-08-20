@@ -97,7 +97,7 @@ def test_pending_metadata_contains_only_poll_secret_reference():
         base_url="https://cloud.example.com",
     )
 
-    pending = store.get_pending(started.flow_id)
+    pending = store.get_pending(started.flow_id, "user-a")
     assert pending is not None
     assert "poll-secret" not in pending.model_dump_json()
     secret = secrets.get(pending.poll_token_ref)
@@ -111,20 +111,20 @@ def test_completed_connection_separates_metadata_from_secret_and_consumes_poll_s
         owner_subject="user-a",
         base_url="https://cloud.example.com",
     )
-    pending = store.get_pending(started.flow_id)
+    pending = store.get_pending(started.flow_id, "user-a")
     assert pending is not None
     poll_token_ref = pending.poll_token_ref
 
     completed = service.poll_connection(owner_subject="user-a", flow_id=started.flow_id)
     assert completed is not None
-    record = store.get_connection(completed.connection_id)
+    record = store.get_connection(completed.connection_id, "user-a")
     assert record is not None
     assert "generated-app-password" not in record.model_dump_json()
     stored_secret = secrets.get(record.credential_ref)
     assert stored_secret is not None
     assert stored_secret.get_secret_value() == "generated-app-password"
     assert secrets.get(poll_token_ref) is None
-    assert store.get_pending(started.flow_id) is None
+    assert store.get_pending(started.flow_id, "user-a") is None
 
     settings = service.resolve_settings(
         owner_subject="user-a",
@@ -136,18 +136,20 @@ def test_completed_connection_separates_metadata_from_secret_and_consumes_poll_s
 
 
 def test_foreign_user_cannot_resolve_or_poll_another_users_connection():
-    service, _, _, login = make_service()
+    service, store, _, login = make_service()
     started = service.begin_connection(
         owner_subject="user-a",
         base_url="https://cloud.example.com",
     )
 
+    assert store.get_pending(started.flow_id, "user-b") is None
     with pytest.raises(ConnectionNotFoundError):
         service.poll_connection(owner_subject="user-b", flow_id=started.flow_id)
 
     completed = service.poll_connection(owner_subject="user-a", flow_id=started.flow_id)
     assert completed is not None
     assert login.completed is True
+    assert store.get_connection(completed.connection_id, "user-b") is None
 
     with pytest.raises(ConnectionNotFoundError):
         service.resolve_settings(
@@ -175,19 +177,19 @@ def test_poll_can_remain_pending_without_creating_connection_or_losing_poll_secr
         owner_subject="user-a",
         base_url="https://cloud.example.com",
     )
-    pending = store.get_pending(started.flow_id)
+    pending = store.get_pending(started.flow_id, "user-a")
     assert pending is not None
 
     assert service.poll_connection(owner_subject="user-a", flow_id=started.flow_id) is None
-    assert list(store.list_connections()) == []
-    assert store.get_pending(started.flow_id) is not None
+    assert list(store.list_connections("user-a")) == []
+    assert store.get_pending(started.flow_id, "user-a") is not None
     assert secrets.get(pending.poll_token_ref) is not None
 
 
 def test_disconnect_revokes_remote_credential_then_removes_local_secret(monkeypatch):
     service, store, secrets, _ = make_service()
     _, completed = connect(service)
-    record = store.get_connection(completed.connection_id)
+    record = store.get_connection(completed.connection_id, "user-a")
     assert record is not None
     revoked: list[str] = []
 
@@ -213,14 +215,14 @@ def test_disconnect_revokes_remote_credential_then_removes_local_secret(monkeypa
 
     assert result.remote_credential_revoked is True
     assert revoked == ["yes"]
-    assert store.get_connection(completed.connection_id) is None
+    assert store.get_connection(completed.connection_id, "user-a") is None
     assert secrets.get(record.credential_ref) is None
 
 
 def test_disconnect_still_purges_local_secret_on_unexpected_remote_failure(monkeypatch):
     service, store, secrets, _ = make_service()
     _, completed = connect(service)
-    record = store.get_connection(completed.connection_id)
+    record = store.get_connection(completed.connection_id, "user-a")
     assert record is not None
 
     class ExplodingOCSClient:
@@ -241,5 +243,5 @@ def test_disconnect_still_purges_local_secret_on_unexpected_remote_failure(monke
     )
 
     assert result.remote_credential_revoked is False
-    assert store.get_connection(completed.connection_id) is None
+    assert store.get_connection(completed.connection_id, "user-a") is None
     assert secrets.get(record.credential_ref) is None
