@@ -44,7 +44,7 @@ def test_public_policy_rejects_domain_if_any_dns_answer_is_private(monkeypatch):
     def fake_getaddrinfo(hostname, port, **kwargs):
         assert hostname == "cloud.example.com"
         return [
-            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("203.0.113.10", port)),
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", port)),
             (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.10", port)),
         ]
 
