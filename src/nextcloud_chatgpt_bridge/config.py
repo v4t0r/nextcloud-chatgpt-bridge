@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import PurePosixPath
 
-from pydantic import AnyHttpUrl, Field, SecretStr, field_validator
+from pydantic import AnyHttpUrl, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     nextcloud_app_password: SecretStr = Field(alias="NEXTCLOUD_APP_PASSWORD")
     nextcloud_root_path: str = Field(default="/ChatGPT", alias="NEXTCLOUD_ROOT_PATH")
     nextcloud_verify_tls: bool = Field(default=True, alias="NEXTCLOUD_VERIFY_TLS")
+    allow_insecure_http: bool = Field(default=False, alias="NEXTCLOUD_ALLOW_INSECURE_HTTP")
     max_transfer_bytes: int = Field(
         default=4_000_000,
         ge=1_024,
@@ -41,3 +42,11 @@ class Settings(BaseSettings):
         if ".." in PurePosixPath(value).parts:
             raise ValueError("NEXTCLOUD_ROOT_PATH must not contain parent traversal")
         return normalized
+
+    @model_validator(mode="after")
+    def enforce_encrypted_transport(self) -> "Settings":
+        if self.nextcloud_base_url.scheme != "https" and not self.allow_insecure_http:
+            raise ValueError(
+                "NEXTCLOUD_BASE_URL must use HTTPS unless NEXTCLOUD_ALLOW_INSECURE_HTTP=true"
+            )
+        return self
