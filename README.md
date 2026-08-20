@@ -8,7 +8,7 @@ Provide a reusable multi-user connector that lets ChatGPT and Codex work with ea
 
 ## Current status
 
-Private development repository. The project now has:
+`v0.1.0` is the first installable developer release. The project now has:
 
 - project bootstrap and CI configuration
 - validated runtime configuration
@@ -32,7 +32,11 @@ Private development repository. The project now has:
 - versioned database migration, startup schema verification and orphan-secret maintenance
 - multi-user isolation and hosted-storage tests
 
-The public-app backend foundation is implemented, but the service is not production-ready. Infrastructure-enforced outbound network policy, rate limits, audit/privacy controls, deployment wiring and an end-to-end ChatGPT/Codex OAuth test remain release gates.
+The local/self-hosted bridge and public-app backend foundation are implemented, but the hosted service is not production-ready. Infrastructure-enforced outbound network policy, rate limits, audit/privacy controls, deployment wiring and an end-to-end ChatGPT/Codex OAuth test remain public-service release gates.
+
+## v0.1.0 scope
+
+This release provides an installable local MCP bridge and the tested code foundation for a future public ChatGPT/Codex app. It does **not** publish or authorize a production multi-tenant hosted service. See [SECURITY.md](SECURITY.md) and [docs/HOSTED_ACCEPTANCE.md](docs/HOSTED_ACCEPTANCE.md).
 
 ## Planned architecture
 
@@ -130,6 +134,8 @@ ruff check .
 
 Install `.[hosted]` for PostgreSQL-backed connection metadata and encrypted credential storage. Hosted secrets and database URLs are deployment configuration and must never be committed.
 
+Release artifacts contain a wheel, source archive and `SHA256SUMS`. After installing the wheel, `nextcloud-chatgpt-schema` prints the packaged PostgreSQL migration for review/application by an operator.
+
 Copy `.env.example` to `.env` only for local testing and replace placeholders with a dedicated Nextcloud account/app password.
 
 Run the MCP server over stdio:
@@ -169,12 +175,13 @@ The first live validation passed against Nextcloud 33.0.7 with OCS, WebDAV read/
 3. MCP tool layer — implemented
 4. native Nextcloud capability/MCP detection — implemented; fallback live-validated
 5. public multi-user connection/auth/storage foundation — implemented; deployment integration pending
-6. infrastructure egress enforcement, rate limiting and audit/privacy controls
-7. end-to-end ChatGPT/Codex OAuth and account-connection validation
-8. search, shares, tags and versions
-9. CalDAV and CardDAV support
-10. security review, app submission and public release
+6. `v0.1.0` installable developer release — implemented
+7. infrastructure egress enforcement, rate limiting and audit/privacy controls
+8. end-to-end ChatGPT/Codex OAuth and account-connection validation
+9. search, shares, tags and versions
+10. CalDAV and CardDAV support
+11. security review, app submission and public hosted-service release
 
 ## License
 
-No public license has been selected yet. Apache-2.0 is the current candidate for the first public release.
+Licensed under the [Apache License 2.0](LICENSE). See [CHANGELOG.md](CHANGELOG.md) for release history.

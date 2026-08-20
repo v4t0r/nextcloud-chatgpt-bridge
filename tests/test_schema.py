@@ -3,8 +3,16 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import create_engine, text
 
+from nextcloud_chatgpt_bridge.migration import initial_migration_sql
 from nextcloud_chatgpt_bridge.persistence import PersistenceError
 from nextcloud_chatgpt_bridge.schema import verify_hosted_schema
+
+
+def test_initial_migration_is_packaged_and_versioned():
+    migration = initial_migration_sql()
+
+    assert "CREATE TABLE bridge_schema_migrations" in migration
+    assert "INSERT INTO bridge_schema_migrations (version) VALUES (1)" in migration
 
 
 def test_schema_verifier_accepts_exact_expected_version():

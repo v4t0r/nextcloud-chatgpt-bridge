@@ -9,6 +9,7 @@ from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel
 
+from nextcloud_chatgpt_bridge import __version__
 from nextcloud_chatgpt_bridge.capabilities import CapabilityReport, build_capability_report
 from nextcloud_chatgpt_bridge.config import Settings
 from nextcloud_chatgpt_bridge.models import FileInfo
@@ -346,6 +347,7 @@ def delete_file(path: str) -> OperationResult:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Nextcloud ChatGPT Bridge MCP server")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
         "--transport",
         choices=("stdio", "streamable-http"),
