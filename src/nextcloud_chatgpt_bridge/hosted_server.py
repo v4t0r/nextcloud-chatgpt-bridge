@@ -29,12 +29,16 @@ def _connection_error(exc: Exception) -> RuntimeError:
 
 
 def _register_core_tools(mcp: MCPServer) -> None:
-    read = ToolAnnotations(read_only_hint=True, open_world_hint=True)
-    write = ToolAnnotations(
+    read = ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        open_world_hint=False,
+    )
+    destructive_write = ToolAnnotations(
         read_only_hint=False,
         destructive_hint=True,
         idempotent_hint=False,
-        open_world_hint=True,
+        open_world_hint=False,
     )
 
     mcp.add_tool(
@@ -55,11 +59,15 @@ def _register_core_tools(mcp: MCPServer) -> None:
         title="Download Nextcloud file as base64",
         annotations=read,
     )
-    mcp.add_tool(core.write_text_file, title="Write Nextcloud text file", annotations=write)
+    mcp.add_tool(
+        core.write_text_file,
+        title="Write Nextcloud text file",
+        annotations=destructive_write,
+    )
     mcp.add_tool(
         core.upload_file_base64,
         title="Upload Nextcloud file from base64",
-        annotations=write,
+        annotations=destructive_write,
     )
     mcp.add_tool(
         core.create_folder,
@@ -68,13 +76,13 @@ def _register_core_tools(mcp: MCPServer) -> None:
             read_only_hint=False,
             destructive_hint=False,
             idempotent_hint=False,
-            open_world_hint=True,
+            open_world_hint=False,
         ),
     )
     mcp.add_tool(
         core.move_file,
         title="Move or rename Nextcloud file",
-        annotations=write,
+        annotations=destructive_write,
     )
     mcp.add_tool(
         core.delete_file,
@@ -83,7 +91,7 @@ def _register_core_tools(mcp: MCPServer) -> None:
             read_only_hint=False,
             destructive_hint=True,
             idempotent_hint=True,
-            open_world_hint=True,
+            open_world_hint=False,
         ),
     )
 
@@ -118,7 +126,7 @@ def create_hosted_mcp(
             read_only_hint=False,
             destructive_hint=False,
             idempotent_hint=False,
-            open_world_hint=True,
+            open_world_hint=False,
         ),
     )
     def begin_nextcloud_connection(
@@ -141,7 +149,7 @@ def create_hosted_mcp(
             read_only_hint=False,
             destructive_hint=False,
             idempotent_hint=False,
-            open_world_hint=True,
+            open_world_hint=False,
         ),
     )
     def poll_nextcloud_connection(flow_id: str) -> ConnectionPollResult:
@@ -159,7 +167,11 @@ def create_hosted_mcp(
 
     @mcp.tool(
         title="List connected Nextcloud accounts",
-        annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False),
+        annotations=ToolAnnotations(
+            read_only_hint=True,
+            destructive_hint=False,
+            open_world_hint=False,
+        ),
     )
     def list_nextcloud_connections() -> list[ConnectionSummary]:
         """List credential-free Nextcloud connection metadata for the authenticated user."""
@@ -194,7 +206,7 @@ def create_hosted_mcp(
             read_only_hint=False,
             destructive_hint=True,
             idempotent_hint=False,
-            open_world_hint=True,
+            open_world_hint=False,
         ),
     )
     def disconnect_nextcloud(connection_id: str) -> DisconnectResult:
