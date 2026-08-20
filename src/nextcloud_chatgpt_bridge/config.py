@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     nextcloud_app_password: SecretStr = Field(alias="NEXTCLOUD_APP_PASSWORD")
     nextcloud_root_path: str = Field(default="/ChatGPT", alias="NEXTCLOUD_ROOT_PATH")
     nextcloud_verify_tls: bool = Field(default=True, alias="NEXTCLOUD_VERIFY_TLS")
+    max_transfer_bytes: int = Field(
+        default=4_000_000,
+        ge=1_024,
+        le=25_000_000,
+        alias="NEXTCLOUD_MAX_TRANSFER_BYTES",
+    )
 
     @field_validator("nextcloud_root_path")
     @classmethod
