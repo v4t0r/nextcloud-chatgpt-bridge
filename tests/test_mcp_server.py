@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import pytest
 from mcp import Client
 
 import nextcloud_chatgpt_bridge.server as server
 from nextcloud_chatgpt_bridge.config import Settings
 from nextcloud_chatgpt_bridge.models import FileInfo
+
+pytestmark = pytest.mark.anyio
 
 
 class FakeWebDAVClient:
@@ -72,7 +75,7 @@ class FakeWebDAVClient:
         self.deleted.append(path)
 
 
-def test_settings() -> Settings:
+def _settings() -> Settings:
     return Settings(
         NEXTCLOUD_BASE_URL="https://cloud.example.com",
         NEXTCLOUD_USERNAME="bridge-user",
@@ -86,10 +89,11 @@ def test_settings() -> Settings:
 def install_fake(monkeypatch) -> FakeWebDAVClient:
     fake = FakeWebDAVClient()
     monkeypatch.setattr(server, "_new_client", lambda: fake)
-    monkeypatch.setattr(server, "_safe_settings", test_settings)
+    monkeypatch.setattr(server, "_safe_settings", _settings)
     return fake
 
 
+@pytest.fixture
 def anyio_backend():
     return "asyncio"
 
