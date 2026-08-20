@@ -35,12 +35,16 @@ The HTTP transport is intentionally bound to loopback by default. Do **not** exp
 
 ## Current tools
 
-### Read-only
+### Discovery / read-only
 
+- `get_nextcloud_capabilities`
+- `probe_native_nextcloud_mcp`
 - `list_files`
 - `get_file_info`
 - `read_text_file`
 - `download_file_base64`
+
+`get_nextcloud_capabilities` uses the authenticated OCS capabilities endpoint to inspect server/app hints. `probe_native_nextcloud_mcp` connects to Nextcloud Context Agent's documented MCP endpoint, authenticates with the app password as a Bearer token, and calls only MCP discovery/listing. It never invokes a native Nextcloud tool.
 
 ### Write / modify
 
@@ -51,6 +55,18 @@ The HTTP transport is intentionally bound to loopback by default. Do **not** exp
 - `delete_file`
 
 MCP tool annotations identify read-only and destructive operations for compatible hosts. These annotations are UX hints only; deterministic safety is enforced in the provider and configuration layers.
+
+## Hybrid provider selection
+
+The intended provider order is:
+
+1. inspect OCS capabilities
+2. probe native Context Agent MCP when available
+3. prefer native tools where they offer an equivalent capability and their permissions are appropriate
+4. fall back to WebDAV for file operations
+5. later use CalDAV, CardDAV and OCS APIs for capabilities not provided natively
+
+Native tool discovery is bounded to 200 tool names, each sanitized and truncated before being returned to the outer MCP host.
 
 ## File-transfer limits
 
@@ -68,11 +84,18 @@ The base64 tools are intended as a generic interoperability fallback for small f
 - account root `/` is rejected
 - `..` traversal is rejected before a network request
 - WebDAV responses whose `href` escapes the configured root are ignored
-- TLS verification is enabled by default
-- WebDAV response bodies are never echoed into tool errors
+- HTTPS is required by default for Nextcloud credentials
+- TLS certificate verification is enabled by default
+- remote response bodies are never echoed into tool errors
 - overwrite defaults to `false`
 - deletion of the configured root is always refused
-- remote file contents are treated as untrusted data
+- remote file contents and remote MCP metadata are treated as untrusted data
+- native MCP bearer-token requests do not follow redirects
+- native MCP probing invokes no remote tool
+
+## Hosted-service warning
+
+The current architecture is safe for a local/self-hosted bridge where the operator controls the configured Nextcloud URL. A future public multi-tenant hosted service needs additional SSRF/egress controls before accepting arbitrary user-supplied Nextcloud URLs. This is a release blocker, not an optional hardening task.
 
 ## Testing
 
