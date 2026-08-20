@@ -14,6 +14,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$exitCode = 1
 
 $securePassword = Read-Host "Nextcloud app password" -AsSecureString
 $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
@@ -34,7 +35,7 @@ try {
     }
 
     & python @arguments
-    exit $LASTEXITCODE
+    $exitCode = $LASTEXITCODE
 }
 finally {
     Remove-Item Env:NEXTCLOUD_BASE_URL -ErrorAction SilentlyContinue
@@ -50,3 +51,5 @@ finally {
     $plainPassword = $null
     $securePassword = $null
 }
+
+exit $exitCode
