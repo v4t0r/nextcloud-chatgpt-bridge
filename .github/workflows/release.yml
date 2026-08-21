@@ -60,7 +60,7 @@ jobs:
           wheelcheck/bin/nextcloud-chatgpt-schema | grep "CREATE TABLE bridge_schema_migrations"
 
       - name: Upload workflow artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nextcloud-chatgpt-bridge-${{ github.ref_name }}
           path: dist/*
