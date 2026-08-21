@@ -14,6 +14,10 @@ an operator's privacy, retention, monitoring, backup, and incident-response prog
 
 Do not use sample domains, preview URLs, local tunnels, or private network addresses for review.
 
+Directory publication is not a runtime dependency. A compatible MCP host can connect to this
+service directly before publication. For private stdio, desktop, and Secure MCP Tunnel alternatives,
+see [`DEPLOYMENT_MODES.md`](DEPLOYMENT_MODES.md).
+
 ## OAuth contract
 
 Configure and verify:
@@ -52,6 +56,9 @@ the complete rotation and recovery procedure before public launch.
 Copy `deploy/.env.production.example` to an untracked `deploy/.env.production` and replace every
 example value. The MCP resource URL is always `https://<PUBLIC_DOMAIN>/mcp` in the reference
 composition.
+
+The example contains no usable secrets. Create the referenced password and keyring files only on
+the deployment host; do not convert the example into a credential-bearing tracked file.
 
 The bridge process receives only the private PostgreSQL URL assembled from its mounted password,
 the credential keyring, exact OAuth configuration, public product URLs, trusted host, and proxy

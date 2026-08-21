@@ -32,6 +32,11 @@ The source release does **not** claim an active public service or OpenAI approva
 still requires an operator-controlled production domain, external OAuth configuration, reviewer
 fixture, verified publisher identity, and successful OpenAI review.
 
+The MCP bridge itself works without directory publication. Codex CLI, ChatGPT desktop, and the
+Codex IDE extension can connect directly; compatible remote MCP hosts can use a deployed HTTPS
+endpoint. ChatGPT web requires developer-mode access for an unpublished connection or installation
+of a published plugin. See [deployment modes](docs/DEPLOYMENT_MODES.md).
+
 ## Real Nextcloud validation
 
 The standards-based fallback path passed a live integration run against Nextcloud `33.0.7`:
@@ -182,6 +187,7 @@ The final OpenAI submission remains an owner-controlled action. See
 ## Project documents
 
 - [Authentication and credential boundaries](docs/AUTH_ARCHITECTURE.md)
+- [Private, hosted, and no-store deployment modes](docs/DEPLOYMENT_MODES.md)
 - [MCP tools and provider behavior](docs/MCP.md)
 - [Household and invoice boundary](docs/HOUSEHOLD_ARCHITECTURE.md)
 - [Privacy model](docs/PRIVACY.md)
