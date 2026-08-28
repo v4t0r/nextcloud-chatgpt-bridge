@@ -6,9 +6,23 @@ URLs are recorded below; bridge and OAuth values remain release gates until thei
 ## Product
 
 - **Name:** Nextcloud for ChatGPT & Codex
-- **Developer:** v4t0r
+- **Portal version:** 1.0.0
+- **Subtitle:** Work with Nextcloud files
+- **Developer identity:** release gate; use the exact verified individual or business identity selected in the OpenAI Platform
 - **Category:** Productivity
 - **Authentication:** OAuth 2.1 at the bridge; Nextcloud Login Flow v2 for account connection
+- **Commerce and purchasing:** No; the plugin does not sell, purchase, pay, or approve transactions
+
+The current public pages identify the project as `v4t0r`, while the portal currently exposes a
+verified individual identity. Do not submit until the listing and all public legal/support pages
+match the chosen verified publisher identity, or a matching business identity has been verified.
+
+## Artwork
+
+Use the production square PNG for both portal slots:
+
+- **Directory icon (minimum 256 x 256):** `docs/assets/nextcloud-bridge-mark.png`
+- **Composer icon (minimum 48 x 48):** `docs/assets/nextcloud-bridge-mark.png`
 
 ## Short description
 
@@ -44,5 +58,6 @@ Fill these only from the deployed bridge environment immediately before submissi
 - production MCP URL
 - verified MCP domain
 - OAuth discovery and client-registration details
+- demo recording URL showing the production plugin in developer mode
 
 Do not substitute preview, localhost, private-network, placeholder, or repository-only URLs.

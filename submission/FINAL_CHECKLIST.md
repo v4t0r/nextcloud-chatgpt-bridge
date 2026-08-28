@@ -19,6 +19,16 @@ real production or publisher state and must not be marked complete with placehol
 - [x] Codex plugin manifest, skill, artwork, and marketplace entry
 - [x] Release notes, deployment guide, privacy model, terms boundary, and security policy
 
+## Verified OpenAI portal state (2026-08-28)
+
+- [x] Organization account is verified
+- [x] Submitter is an organization owner with Apps Management read/write access
+- [x] Global-residency project `NC-GPT-APP` is selected
+- [x] Standard **With MCP** draft can be created and is saved in the portal
+- [x] Square PNG artwork is available for both the 256 px directory and 48 px composer slots
+- [x] A verified individual identity is selectable in the Developer Identity field
+- [ ] Selected publisher identity exactly matches the public listing, website, support, privacy, and terms
+
 ## Production environment
 
 - [ ] Public MCP domain resolves to the reviewed deployment
@@ -44,13 +54,21 @@ real production or publisher state and must not be marked complete with placehol
 
 ## Publisher portal
 
-- [ ] OpenAI publisher identity verified
+- [x] OpenAI individual publisher identity verified and visible in the selected project
+- [ ] Publishing route chosen: verified individual identity or separately verified business identity
+- [ ] Publisher name and legal/public pages aligned with the chosen verified identity
+- [x] Standard **With MCP** draft created in the global-residency project
+- [ ] Version, name, subtitle, descriptions, category, and both icon slots completed
 - [ ] Exact production MCP URL entered
 - [ ] Exact website, support, privacy, and terms URLs entered
 - [ ] Listing copy pasted from `submission/LISTING.md`
+- [ ] Demo recording URL entered
+- [ ] Commerce and purchasing declaration completed
 - [ ] Reviewer instructions and credentials entered
 - [ ] Domain challenge token copied into the deployment secret
 - [ ] Domain challenge passes byte-for-byte and is verified in the portal
+- [ ] Five positive and three negative cases entered and rerun successfully
+- [ ] Country availability, release notes, and policy attestations completed
 - [ ] Final metadata preview matches the repository contract
 - [ ] Owner deliberately presses **Submit for review**
 

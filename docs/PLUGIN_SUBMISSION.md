@@ -6,18 +6,58 @@ Passing this checklist does not itself publish the plugin or authorize public ho
 
 ## Submission shape
 
-- submission type: MCP-only initially; optional skills may be added later
+- portal type: Standard **With MCP**; optional skills may be added later
 - MCP URL type: Universal, because one public endpoint resolves tenant context from OAuth
 - product name: Nextcloud for ChatGPT & Codex
 - authentication: external OAuth/OIDC at the bridge boundary, Nextcloud Login Flow v2 for account connection
 - data plane: request-scoped tenant context -> owned connection -> bounded provider
 - product website: https://nextcloud-for-chatgpt.v4t0r.chatgpt.site
 
+## Verified portal state
+
+As of 2026-08-28, the organization is verified, the submitter has Apps Management read/write access,
+the global-residency project `NC-GPT-APP` is selected, and the portal accepts a new Standard **With
+MCP** draft. This proves submission access, not release readiness. The draft remains unsubmitted.
+
+The portal currently offers a verified individual developer identity, while the public listing and
+site identify the maintainer as `v4t0r`. OpenAI requires the verified publisher identity to match the
+name, website, support contact, privacy policy, and terms. Choose the individual or business route
+and align those materials before entering the final publisher fields.
+
 OpenAI currently requires a public production URL, accurate tool metadata, public website, support,
 privacy and terms URLs, domain verification, reviewer access, and positive plus negative test cases.
 The canonical form copy, cases, annotation inventory, reviewer runbook, release notes, and final
 checklist live in [`submission/`](../submission/). Deployment and publisher actions are release
 gates and are never represented as complete by the source release alone.
+
+The observed portal also requires separate directory and composer icons, a semantic version,
+subtitle, developer identity, demo recording URL, commerce/purchasing declaration, country
+availability, release notes, and policy attestations. The prepared square PNG meets both portal
+minimum sizes; the remaining portal values are tracked in `submission/FINAL_CHECKLIST.md`.
+
+## Exact MCP hosting inputs
+
+The repository contains the application and production composition. To create the reviewable
+deployment, the operator must provide:
+
+- one controlled public DNS host, normally `mcp.<owned-domain>`, yielding the universal endpoint
+  `https://mcp.<owned-domain>/mcp`
+- DNS and HTTPS-origin control for `/.well-known/openai-apps-challenge`
+- an internet-reachable Linux host or container platform with persistent storage, inbound 80/443,
+  outbound HTTPS, and current Docker plus Docker Compose for the reference deployment
+- SSH or equivalent deployment access and a non-Git secret manager
+- an external OAuth/OIDC issuer with public discovery and JWKS, PKCE S256, audience equal to the
+  exact MCP URL, scope `nextcloud:use`, and one supported client mode: CIMD, DCR, or predefined
+- UserInfo with verified email plus `openid email` when workspace-domain restrictions are enabled
+- a strong PostgreSQL password and AES-256-GCM credential keyring stored outside Git
+- named hosting and OAuth providers, regions, subprocessors, and concrete retention/deletion terms
+  for the public privacy disclosures
+- a no-MFA reviewer bridge identity and a disposable non-admin Nextcloud account containing only
+  the synthetic fixture from the reviewer runbook
+
+The bridge does not require an OpenAI model API key and does not call the OpenAI model API. OpenAI
+directory publication is also not a runtime dependency: compatible clients can use the hosted MCP
+endpoint directly before review, while ChatGPT developer mode can be used for pre-submission tests.
 
 ## Tool metadata gate
 

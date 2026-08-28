@@ -1,7 +1,7 @@
-# Submission release notes — v0.3.0
+# Submission release notes — portal 1.0.0 / source v0.3.0
 
-`v0.3.0` is the production-deployment and OpenAI-submission candidate for **Nextcloud for ChatGPT
-& Codex**.
+Portal version `1.0.0` maps to source release `v0.3.0`, the production-deployment and initial
+OpenAI-submission candidate for **Nextcloud for ChatGPT & Codex**.
 
 ## Highlights
 
