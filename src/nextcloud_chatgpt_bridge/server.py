@@ -8,6 +8,7 @@ from pathlib import PurePosixPath
 from typing import Literal
 
 from mcp.server import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel
 
@@ -149,14 +150,14 @@ def _validate_transfer(info: FileInfo, settings: Settings) -> None:
         )
 
 
-def _translate_error(exc: Exception) -> RuntimeError:
+def _translate_error(exc: Exception) -> ToolError:
     if isinstance(exc, (ValueError, UnicodeError, binascii.Error, RuntimeResolutionError)):
-        return RuntimeError(str(exc))
+        return ToolError(str(exc))
     if isinstance(exc, WebDAVError):
-        return RuntimeError("Nextcloud WebDAV operation failed")
+        return ToolError("Nextcloud WebDAV operation failed")
     if isinstance(exc, OCSError):
-        return RuntimeError("Nextcloud OCS operation failed")
-    return RuntimeError("Nextcloud bridge operation failed")
+        return ToolError("Nextcloud OCS operation failed")
+    return ToolError("Nextcloud bridge operation failed")
 
 
 @mcp.tool(

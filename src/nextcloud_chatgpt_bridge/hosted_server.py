@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Literal
 
 from mcp.server import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel
 
@@ -31,16 +32,16 @@ class ConnectionPollResult(BaseModel):
     connection: ConnectionSummary | None = None
 
 
-def _connection_error(exc: Exception) -> RuntimeError:
+def _connection_error(exc: Exception) -> ToolError:
     if isinstance(exc, (ConnectionError, ValueError)):
-        return RuntimeError(str(exc))
-    return RuntimeError("Nextcloud connection operation failed")
+        return ToolError(str(exc))
+    return ToolError("Nextcloud connection operation failed")
 
 
-def _household_error(exc: Exception) -> RuntimeError:
+def _household_error(exc: Exception) -> ToolError:
     if isinstance(exc, (HouseholdError, ConnectionError, ValueError)):
-        return RuntimeError(str(exc))
-    return RuntimeError("Household operation failed")
+        return ToolError(str(exc))
+    return ToolError("Household operation failed")
 
 
 def _register_core_tools(mcp: MCPServer) -> None:

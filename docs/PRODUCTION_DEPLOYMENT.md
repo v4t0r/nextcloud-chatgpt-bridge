@@ -5,6 +5,10 @@ an operator's privacy, retention, monitoring, backup, and incident-response prog
 
 ## Required external services
 
+For a fresh Ubuntu VM behind an existing reverse proxy, start with
+[`SINGLE_VM_DEPLOYMENT.md`](SINGLE_VM_DEPLOYMENT.md). An OAuth provider can run as a separate
+service on that same VM; the reference composition below does not install one.
+
 - a public DNS name dedicated to the MCP service
 - an internet-reachable Linux host with current Docker and Docker Compose
 - an external OAuth/OIDC authorization server with public HTTPS discovery and JWKS

@@ -1,0 +1,64 @@
+{
+  "realm": "nextcloud",
+  "enabled": true,
+  "displayName": "Nextcloud bridge",
+  "sslRequired": "all",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "accessTokenLifespan": 300,
+  "clientScopes": [
+    {
+      "name": "nextcloud:use",
+      "description": "Use the authenticated user's Nextcloud bridge workspace",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "bridge-resource-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "${BRIDGE_OAUTH_AUDIENCE}",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "nextcloud-chatgpt",
+      "name": "Nextcloud for ChatGPT and Codex",
+      "description": "Enable only after configuring exact portal callback URIs and verifying OAuth.",
+      "enabled": false,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "${BRIDGE_OAUTH_CLIENT_SECRET}",
+      "clientAuthenticatorType": "client-secret",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "consentRequired": true,
+      "redirectUris": [],
+      "webOrigins": [],
+      "defaultClientScopes": ["email", "nextcloud:use"],
+      "optionalClientScopes": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": ""
+      }
+    }
+  ]
+}

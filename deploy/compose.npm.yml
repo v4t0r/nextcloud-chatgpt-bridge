@@ -1,0 +1,109 @@
+# Use AFTER compose.production.yml; requires Docker Compose 2.24.4+.
+services:
+  bridge:
+    environment:
+      FORWARDED_ALLOW_IPS: ${BRIDGE_EDGE_IP:?Set the internal Caddy address}
+  caddy:
+    ports: !override
+      - "${VM_BIND_IP:?Set the VM address}:8081:8081"
+      - "${VM_BIND_IP:?Set the VM address}:8082:8082"
+    volumes: !override
+      - ./Caddyfile.npm:/etc/caddy/Caddyfile:ro
+    environment:
+      AUTH_DOMAIN: ${AUTH_DOMAIN:?Set the login hostname}
+      NPM_PROXY_IP: ${NPM_PROXY_IP:?Set the trusted NPM address}
+    networks:
+      private:
+        ipv4_address: ${BRIDGE_EDGE_IP}
+      edge: {}
+      auth:
+        ipv4_address: ${AUTH_EDGE_IP:?Set the internal authentication edge address}
+    depends_on:
+      keycloak:
+        condition: service_healthy
+  auth_database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD_FILE: /run/secrets/auth_db_password
+    secrets:
+      - auth_db_password
+    volumes:
+      - auth_database:/var/lib/postgresql/data
+    networks:
+      - auth_data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+  keycloak:
+    build:
+      context: ./keycloak
+      args:
+        KEYCLOAK_IMAGE: ${KEYCLOAK_IMAGE:?Set a pinned Keycloak image}
+    command: ["start", "--optimized", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://auth_database:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_HOSTNAME: https://${AUTH_DOMAIN}
+      KC_HOSTNAME_STRICT: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_PROXY_TRUSTED_ADDRESSES: ${AUTH_EDGE_IP}
+      KC_BOOTSTRAP_ADMIN_USERNAME: bootstrap-admin
+      BRIDGE_OAUTH_AUDIENCE: https://${PUBLIC_DOMAIN}/mcp
+    secrets:
+      - auth_db_password
+      - auth_admin_password
+      - auth_client_secret
+    networks:
+      - auth
+      - auth_data
+    depends_on:
+      auth_database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bash", "/opt/keycloak/bin/bridge-healthcheck.sh"]
+      interval: 15s
+      timeout: 5s
+      start_period: 90s
+      retries: 20
+    mem_limit: 2g
+    cpus: 2
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+networks:
+  private:
+    ipam:
+      config:
+        - subnet: ${BRIDGE_PRIVATE_SUBNET:?Set a non-conflicting Docker subnet}
+          ip_range: ${BRIDGE_DYNAMIC_RANGE:?Set the dynamic container address range}
+  auth:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${AUTH_PRIVATE_SUBNET:?Set a non-conflicting Docker subnet}
+          ip_range: ${AUTH_DYNAMIC_RANGE:?Set the dynamic container address range}
+  auth_data:
+    internal: true
+
+volumes:
+  auth_database:
+
+secrets:
+  auth_db_password:
+    file: ${AUTH_DB_PASSWORD_FILE:?Set the secret file path}
+  auth_admin_password:
+    file: ${AUTH_ADMIN_PASSWORD_FILE:?Set the secret file path}
+  auth_client_secret:
+    file: ${AUTH_CLIENT_SECRET_FILE:?Set the secret file path}
