@@ -2,6 +2,10 @@
     admin off
     auto_https off
     servers {
+        timeouts {
+            read_header 10s
+            idle 2m
+        }
         trusted_proxies static {$NPM_PROXY_IP}
         trusted_proxies_strict
     }
@@ -13,6 +17,7 @@
         host {$PUBLIC_DOMAIN}
     }
     handle @npm {
+        header -Server
         reverse_proxy bridge:8000 {
             flush_interval -1
             header_up X-Forwarded-Proto https
@@ -30,6 +35,15 @@
         host {$AUTH_DOMAIN}
     }
     handle @npm {
+        header {
+            -Server
+            Strict-Transport-Security "max-age=31536000"
+            X-Content-Type-Options nosniff
+            Referrer-Policy no-referrer
+        }
+        request_body {
+            max_size 1MB
+        }
         @administration path /admin /admin/* /realms/master /realms/master/* /health /health/* /metrics
         respond @administration "Not found" 404
         reverse_proxy keycloak:8080 {

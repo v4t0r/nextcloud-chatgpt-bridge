@@ -1,0 +1,16 @@
+FROM golang:1.27.1-alpine@sha256:cf6fca6641884b8433441b2b0652976f975e1d0fdd26d177eaaf8596087f3125 AS builder
+WORKDIR /build
+ENV CGO_ENABLED=0 GOTOOLCHAIN=local
+# Build the released Caddy module with patched Go and dependency versions.
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    go mod init nextcloud.local/caddy-build \
+    && go get github.com/caddyserver/caddy/v2/cmd/caddy@v2.11.4 \
+    && go get golang.org/x/crypto@v0.55.0 golang.org/x/net@v0.57.0 \
+        golang.org/x/text@v0.41.0 google.golang.org/grpc@v1.83.1 \
+    && go build -p 2 -trimpath -o /out/caddy github.com/caddyserver/caddy/v2/cmd/caddy
+
+FROM caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+# Only high HTTP ports are used behind NPM; remove the upstream file capability
+# so the executable can run with all capabilities dropped and no-new-privileges.
+RUN apk upgrade --no-cache && setcap -r /usr/bin/caddy
+COPY --from=builder /out/caddy /usr/bin/caddy

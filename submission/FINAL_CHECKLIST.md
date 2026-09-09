@@ -31,16 +31,17 @@ real production or publisher state and must not be marked complete with placehol
 
 ## Production environment
 
-- [ ] Public MCP domain resolves to the reviewed deployment
-- [ ] TLS and trusted proxy/host configuration validated
+- [x] Public MCP domain resolves to the reviewed deployment (2026-09-09)
+- [x] TLS and trusted proxy/host configuration validated (2026-09-09)
+- [ ] Upstream NPM security fix and residual image findings accepted for this deployment
 - [ ] External OAuth discovery, JWKS, audience, scopes, PKCE, and client mode validated
 - [ ] PostgreSQL backup/restore and credential-key rotation tested
 - [ ] Monitoring, alerting, incident response, log retention, and abuse response approved
 - [ ] Actual hosting and OAuth providers added to privacy disclosures
 - [ ] Concrete metadata, log, backup, inactive-account, and financial-data retention published
 - [ ] User export, disconnect, revocation, and deletion procedures tested
-- [ ] Public website, support, privacy, and terms URLs return HTTPS 200
-- [ ] `nextcloud-chatgpt-preflight` passes against exact production URLs
+- [x] Public website, support, privacy, and terms URLs return HTTPS 200 (2026-09-09)
+- [x] `nextcloud-chatgpt-preflight` passes against exact production URLs (2026-09-09; domain challenge not yet configured)
 - [ ] Full hosted acceptance runbook passes with two isolated tenants
 
 ## Reviewer fixture
@@ -55,7 +56,7 @@ real production or publisher state and must not be marked complete with placehol
 ## Publisher portal
 
 - [x] OpenAI individual publisher identity verified and visible in the selected project
-- [ ] Publishing route chosen: verified individual identity or separately verified business identity
+- [x] Publishing route chosen: verified individual identity
 - [ ] Publisher name and legal/public pages aligned with the chosen verified identity
 - [x] Standard **With MCP** draft created in the global-residency project
 - [ ] Version, name, subtitle, descriptions, category, and both icon slots completed

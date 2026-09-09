@@ -5,6 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-09-09
+
+### Added
+
+- Ubuntu bootstrap, separate Keycloak realm and NPM-compatible single-VM composition.
+- First-install secret generation outside source, with overwrite protection.
+- Key-only SSH and Docker-aware ingress hardening with timed rollback and recovery guide.
+
+### Security
+
+- Bounded container resources and log rotation; non-root, read-only Caddy without capabilities.
+- Bounded OAuth request bodies, worker queue and database pool; restricted administration paths.
+- Digest-pinned runtime bases, distribution updates and Caddy rebuilt with patched Go dependencies.
+- Preserved network isolation, tenant boundaries and credential separation.
+
+### Fixed
+
+- Expected tool failures retain sanitized messages with MCP SDK 2.2 via ToolError.
+- Fixed edge IP addresses no longer overlap dynamic Docker allocation ranges.
+
+### Release scope
+
+- Source/deployment release only. Live OAuth acceptance, reviewer fixtures, publisher alignment,
+  upstream NPM patch verification and OpenAI submission remain separate required gates.
+
 ## [0.3.0] - 2026-08-20
 
 ### Added
@@ -87,6 +112,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Public hosted deployment remains blocked until infrastructure egress controls, rate limits,
   privacy controls and production operations are supplied by the deployer.
 
+[0.3.1]: https://github.com/v4t0r/nextcloud-chatgpt-bridge/releases/tag/v0.3.1
 [0.3.0]: https://github.com/v4t0r/nextcloud-chatgpt-bridge/releases/tag/v0.3.0
 [0.2.0]: https://github.com/v4t0r/nextcloud-chatgpt-bridge/releases/tag/v0.2.0
 [0.1.0]: https://github.com/v4t0r/nextcloud-chatgpt-bridge/releases/tag/v0.1.0

@@ -1,6 +1,6 @@
-# Submission release notes — portal 1.0.0 / source v0.3.0
+# Submission release notes — planned portal 1.0.0 / source v0.3.1
 
-Portal version `1.0.0` maps to source release `v0.3.0`, the production-deployment and initial
+Planned portal version `1.0.0` maps to source release `v0.3.1`, the hardened deployment and initial
 OpenAI-submission candidate for **Nextcloud for ChatGPT & Codex**.
 
 ## Highlights
@@ -13,6 +13,8 @@ OpenAI-submission candidate for **Nextcloud for ChatGPT & Codex**.
 - DNS-rebinding-resistant outbound HTTPS proxy and network-isolated production composition
 - exact OAuth/resource-metadata/domain-challenge release preflight
 - Codex plugin package, reviewer cases, listing copy, and public-site source
+- single-VM NPM/Keycloak deployment, guarded host hardening and bounded container resources
+- patched Caddy build and deployment-specific vulnerability assessment guidance
 
 ## Release boundary
 

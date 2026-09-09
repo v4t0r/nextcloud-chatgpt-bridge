@@ -1,9 +1,32 @@
 # Use AFTER compose.production.yml; requires Docker Compose 2.24.4+.
+x-bounded-logs: &bounded-logs
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   bridge:
+    mem_limit: 1g
+    cpus: 2
+    pids_limit: 128
+    logging: *bounded-logs
     environment:
       FORWARDED_ALLOW_IPS: ${BRIDGE_EDGE_IP:?Set the internal Caddy address}
   caddy:
+    image: nextcloud-bridge-caddy-hardened:local
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+    user: "1000:1000"
+    read_only: true
+    cap_add: !reset []
+    mem_limit: 256m
+    cpus: 1
+    pids_limit: 128
+    logging: *bounded-logs
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
     ports: !override
       - "${VM_BIND_IP:?Set the VM address}:8081:8081"
       - "${VM_BIND_IP:?Set the VM address}:8082:8082"
@@ -22,7 +45,14 @@ services:
       keycloak:
         condition: service_healthy
   auth_database:
-    image: postgres:17-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 128
+    logging: *bounded-logs
+    image: nextcloud-bridge-postgres-hardened:local
     environment:
       POSTGRES_DB: keycloak
       POSTGRES_USER: keycloak
@@ -42,6 +72,8 @@ services:
     security_opt:
       - no-new-privileges:true
   keycloak:
+    pids_limit: 512
+    logging: *bounded-logs
     build:
       context: ./keycloak
       args:
@@ -56,6 +88,9 @@ services:
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: xforwarded
       KC_PROXY_TRUSTED_ADDRESSES: ${AUTH_EDGE_IP}
+      KC_HTTP_MAX_QUEUED_REQUESTS: "100"
+      KC_HTTP_POOL_MAX_THREADS: "50"
+      KC_DB_POOL_MAX_SIZE: "20"
       KC_BOOTSTRAP_ADMIN_USERNAME: bootstrap-admin
       BRIDGE_OAUTH_AUDIENCE: https://${PUBLIC_DOMAIN}/mcp
     secrets:
@@ -81,6 +116,31 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
+
+  database:
+    image: nextcloud-bridge-postgres-hardened:local
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 128
+    logging: *bounded-logs
+  egress:
+    mem_limit: 512m
+    cpus: 1
+    pids_limit: 128
+    logging: *bounded-logs
+  maintenance:
+    mem_limit: 512m
+    cpus: 1
+    pids_limit: 128
+    logging: *bounded-logs
+  migrate:
+    mem_limit: 512m
+    cpus: 1
+    pids_limit: 128
+    logging: *bounded-logs
 
 networks:
   private:

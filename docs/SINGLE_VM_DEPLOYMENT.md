@@ -120,6 +120,9 @@ networks, and neither database has a host-published port.
 
 ## OAuth acceptance after infrastructure startup
 
+Before enabling client linking, complete [security hardening](SECURITY_HARDENING.md): persistent
+key access, Docker-aware ingress rules, bounded resources/logs, image scans and residual-risk review.
+
 Deploy a pinned supported Keycloak release in production mode with PostgreSQL, its own database
 credentials, and a canonical HTTPS hostname. Use its documented trusted reverse-proxy settings.
 Keep bootstrap administration and client secrets outside Git and logs.

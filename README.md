@@ -12,7 +12,8 @@ Product website: [nextcloud-for-chatgpt.v4t0r.chatgpt.site](https://nextcloud-fo
 
 ## Release status
 
-`v0.3.0` is the public-app and production-deployment release candidate.
+`v0.3.1` is the hardened deployment release candidate. OpenAI submission remains subject to
+the unchecked gates in `submission/FINAL_CHECKLIST.md`; a source release is not store approval.
 
 The repository contains the application-side pieces required for a universal OAuth-protected MCP
 service:

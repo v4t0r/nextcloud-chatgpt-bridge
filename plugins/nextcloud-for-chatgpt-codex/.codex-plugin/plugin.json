@@ -1,6 +1,6 @@
 {
   "name": "nextcloud-for-chatgpt-codex",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Connect ChatGPT and Codex to a user-owned Nextcloud workspace through a tenant-isolated MCP bridge.",
   "author": {
     "name": "v4t0r",
