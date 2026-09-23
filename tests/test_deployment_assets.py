@@ -1,9 +1,29 @@
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_email_scope_uses_real_verification_status_and_preserves_oauth_boundaries():
+    realm = json.loads((ROOT / "deploy/keycloak/nextcloud-realm.json").read_text())
+    email = next(scope for scope in realm["clientScopes"] if scope["name"] == "email")
+    mappers = {mapper["config"]["claim.name"]: mapper for mapper in email["protocolMappers"]}
+    verified = mappers["email_verified"]
+    assert verified["protocolMapper"] == "oidc-usermodel-property-mapper"
+    assert verified["config"]["user.attribute"] == "emailVerified"
+    assert verified["config"]["userinfo.token.claim"] == "true"
+    assert verified["config"]["jsonType.label"] == "boolean"
+    assert mappers["email"]["config"]["userinfo.token.claim"] == "true"
+    client = realm["clients"][0]
+    assert "email" in client["defaultClientScopes"]
+    assert client["attributes"]["pkce.code.challenge.method"] == "S256"
+    assert client["publicClient"] is False
+    assert client["directAccessGrantsEnabled"] is False
+    assert client["enabled"] is False  # fresh installations require an exact callback first
+    assert client["redirectUris"] == []
 
 
 def _example_keys(content: str) -> set[str]:

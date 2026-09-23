@@ -15,6 +15,27 @@ Passing this checklist does not itself publish the plugin or authorize public ho
 
 ## Verified portal state
 
+### 2026-09-24 continuation
+
+The existing v1.0.0 draft now contains the product listing, verified individual publisher,
+production MCP URL `https://mcp.ooh.world/mcp`, predefined OAuth client ID, three starter prompts,
+five positive cases, three negative cases, and release notes. These are saved draft inputs, not
+evidence that the reviewer cases have passed or that the plugin has been submitted.
+
+The production OAuth client is enabled with the exact portal callback
+`https://chatgpt.com/connector_platform_oauth_redirect`, confidential client authentication and
+PKCE S256. The missing `email` client scope was created and attached. Discovery now advertises
+`openid`, `email`, `offline_access`, and `nextcloud:use`. The email verification mapper reads the
+actual account verification state; it does not manufacture a verified email claim.
+
+Public readiness, authentication challenge, discovery, JWKS and blocked management paths passed
+15 live checks. The realm still has no user accounts. Reviewer credentials, a connected synthetic
+Nextcloud fixture, full OAuth/two-tenant acceptance, client secret entry, domain verification,
+Scan Tools, and a demo recording remain open. Publisher/legal-page alignment and the actual
+NPM image's security fix also remain release gates.
+
+### Historical baseline
+
 As of 2026-08-28, the organization is verified, the submitter has Apps Management read/write access,
 the global-residency project `NC-GPT-APP` is selected, and the portal accepts a new Standard **With
 MCP** draft. This proves submission access, not release readiness. The draft remains unsubmitted.
