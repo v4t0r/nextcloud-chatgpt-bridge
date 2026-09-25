@@ -68,19 +68,20 @@ real production or publisher state and must not be marked complete with placehol
 - [ ] Demo recording URL entered
 - [ ] Commerce and purchasing declaration completed
 - [ ] Reviewer instructions and credentials entered
-- [ ] Domain challenge token copied into the deployment secret
-- [ ] Domain challenge passes byte-for-byte and is verified in the portal
+- [x] Domain challenge token configured privately on the production VM (2026-09-25)
+- [x] Domain challenge passes byte-for-byte and is verified in the portal (2026-09-25)
 - [ ] Five positive and three negative cases entered and rerun successfully
 - [ ] Country availability, release notes, and policy attestations completed
 - [ ] Final metadata preview matches the repository contract
 - [ ] Owner deliberately presses **Submit for review**
 
-The 2026-09-25 portal scan attempt saved the MCP draft with DCR selected and failed because Keycloak's
-Trusted Hosts policy rejected dynamic registration. The form can be switched to `Pre-defined` with
-client ID `nextcloud-chatgpt`, but this change and Scan Tools require the existing client secret to
-be entered securely. The domain challenge token remains unavailable until MCP configuration is saved.
-The 2026-09-25 portal form currently shows `Pre-defined` with the correct client ID but an empty
-client-secret field. No successful tool scan or domain verification has been observed yet.
+The 2026-09-25 portal scan now uses pre-defined client ID `nextcloud-chatgpt` and the client secret
+entered by the operator. Domain verification passed. The authenticated tool scan is still blocked:
+OpenAI requests `openid email offline_access nextcloud:use`, but the deployed Keycloak client rejects
+`offline_access` as `invalid_scope`. A read-only authorization probe passes without that scope and
+fails with it. The optional client-scope change is prepared, pending explicit authorization because
+it can permit offline refresh tokens. The realm currently has no users, so a reviewer identity and
+end-to-end scan remain separate gates even after this scope issue is fixed.
 
 ## Never include
 
