@@ -1,9 +1,7 @@
 # Use AFTER compose.production.yml; requires Docker Compose 2.24.4+.
 x-bounded-logs: &bounded-logs
-  driver: local
-  options:
-    max-size: "10m"
-    max-file: "3"
+  # Host journald is capped at seven days by deploy/configure-log-retention.sh.
+  driver: journald
 
 services:
   bridge:
