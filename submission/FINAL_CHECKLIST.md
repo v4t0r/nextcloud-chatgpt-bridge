@@ -27,7 +27,7 @@ real production or publisher state and must not be marked complete with placehol
 - [x] Standard **With MCP** draft can be created and is saved in the portal
 - [x] Square PNG artwork is available for both the 256 px directory and 48 px composer slots
 - [x] A verified individual identity is selectable in the Developer Identity field
-- [ ] Selected publisher identity exactly matches the public listing, website, support, privacy, and terms
+- [x] Selected individual publisher identity and controller name match the public listing and legal pages (2026-09-25)
 
 ## Production environment
 
@@ -36,8 +36,10 @@ real production or publisher state and must not be marked complete with placehol
 - [x] Identified NPM 2.15.1 command-injection path patched with upstream `a5db5ed`, regression-tested and verified on the running proxy image (2026-09-25)
 - [ ] External OAuth discovery, JWKS, audience, scopes, PKCE, and client mode validated
 - [ ] PostgreSQL backup/restore and credential-key rotation tested
+- [x] Daily encrypted bridge/Keycloak backups, 30-day local retention, and archive integrity checks configured (2026-09-25); off-host copy and restore drill remain open
 - [ ] Monitoring, alerting, incident response, log retention, and abuse response approved
-- [ ] Actual hosting and OAuth providers added to privacy disclosures
+- [x] Seven-day host journal retention applied to all seven production containers (2026-09-25)
+- [x] Hosting, controller, and self-hosted OAuth arrangements published in the privacy notice (2026-09-25)
 - [ ] Concrete metadata, log, backup, inactive-account, and financial-data retention published
 - [ ] User export, disconnect, revocation, and deletion procedures tested
 - [x] Public website, support, privacy, and terms URLs return HTTPS 200 (2026-09-09)
@@ -57,11 +59,11 @@ real production or publisher state and must not be marked complete with placehol
 
 - [x] OpenAI individual publisher identity verified and visible in the selected project
 - [x] Publishing route chosen: verified individual identity
-- [ ] Publisher name and legal/public pages aligned with the chosen verified identity
+- [x] Publisher name and legal/public pages aligned with the chosen verified identity (2026-09-25)
 - [x] Standard **With MCP** draft created in the global-residency project
 - [x] Version, name, subtitle, descriptions, category, and both icon slots saved in the draft
 - [x] Exact production MCP URL entered
-- [x] Exact website, support, privacy, and terms URLs entered; public legal content still needs correction
+- [x] Exact website, support, privacy, and terms URLs entered; corrected public legal content deployed as Site version 5 (2026-09-25)
 - [x] Listing copy saved in the draft
 - [ ] Demo recording URL entered
 - [ ] Commerce and purchasing declaration completed
@@ -77,6 +79,8 @@ The 2026-09-25 portal scan attempt saved the MCP draft with DCR selected and fai
 Trusted Hosts policy rejected dynamic registration. The form can be switched to `Pre-defined` with
 client ID `nextcloud-chatgpt`, but this change and Scan Tools require the existing client secret to
 be entered securely. The domain challenge token remains unavailable until MCP configuration is saved.
+The 2026-09-25 portal form currently shows `Pre-defined` with the correct client ID but an empty
+client-secret field. No successful tool scan or domain verification has been observed yet.
 
 ## Never include
 
