@@ -31,8 +31,21 @@ actual account verification state; it does not manufacture a verified email clai
 Public readiness, authentication challenge, discovery, JWKS and blocked management paths passed
 15 live checks. The realm still has no user accounts. Reviewer credentials, a connected synthetic
 Nextcloud fixture, full OAuth/two-tenant acceptance, client secret entry, domain verification,
-Scan Tools, and a demo recording remain open. Publisher/legal-page alignment and the actual
-NPM image's security fix also remain release gates.
+Scan Tools, and a demo recording remain open. Publisher/legal-page alignment remains a release gate.
+
+### 2026-09-25 proxy and local bridge verification
+
+The actual NPM 2.15.1 `/app/setup.js` was verified byte-for-byte against the tagged source and
+rebuilt locally with upstream fix `a5db5ed156355e3088e7d1ceb0533d4bae922def`. The patched
+image is pinned by the Compose override on the proxy VM. A stopped-service backup of Compose,
+data, and certificates is stored on that VM with a rollback script. The patch regression check,
+Nginx configuration check, MCP readiness, OAuth discovery, Nextcloud status, and 15 public bridge
+checks passed after restart. This closes the identified NPM command-injection gate for this image;
+it is not a general NPM security audit. Reevaluate the backport when upgrading NPM.
+
+The local `nextcloud_local` MCP is registered in Codex. A read-only diagnostic successfully
+reached Nextcloud 34.0.4 through OCS and WebDAV and listed 11 items within the approved folder.
+Credentials are protected with Windows current-user DPAPI outside the repository.
 
 ### Historical baseline
 
