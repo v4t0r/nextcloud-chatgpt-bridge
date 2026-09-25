@@ -18,7 +18,7 @@ Passing this checklist does not itself publish the plugin or authorize public ho
 ### 2026-09-24 continuation
 
 The existing v1.0.0 draft now contains the product listing, verified individual publisher,
-production MCP URL `https://mcp.ooh.world/mcp`, predefined OAuth client ID, three starter prompts,
+production MCP URL `https://mcp.ooh.world/mcp`, an entered predefined OAuth client ID, three starter prompts,
 five positive cases, three negative cases, and release notes. These are saved draft inputs, not
 evidence that the reviewer cases have passed or that the plugin has been submitted.
 
@@ -45,7 +45,13 @@ it is not a general NPM security audit. Reevaluate the backport when upgrading N
 
 The local `nextcloud_local` MCP is registered in Codex. A read-only diagnostic successfully
 reached Nextcloud 34.0.4 through OCS and WebDAV and listed 11 items within the approved folder.
-Credentials are protected with Windows current-user DPAPI outside the repository.
+An actual Codex MCP `list_files` call also returned 11 bounded entries. Credentials are protected
+with Windows current-user DPAPI outside the repository.
+
+The first portal `Scan Tools` attempt did not run a tool scan: the draft had reverted to DCR and
+Keycloak rejected dynamic registration under its Trusted Hosts policy. `Pre-defined` must be saved
+with the existing `nextcloud-chatgpt` client secret before scanning. The OpenAI challenge token is
+still absent from the portal. The current GitHub CI for commit `520366b` passed.
 
 ### Historical baseline
 

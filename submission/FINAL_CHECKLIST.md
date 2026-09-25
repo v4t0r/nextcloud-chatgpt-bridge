@@ -33,7 +33,7 @@ real production or publisher state and must not be marked complete with placehol
 
 - [x] Public MCP domain resolves to the reviewed deployment (2026-09-09)
 - [x] TLS and trusted proxy/host configuration validated (2026-09-09)
-- [ ] Upstream NPM security fix and residual image findings accepted for this deployment
+- [x] Identified NPM 2.15.1 command-injection path patched with upstream `a5db5ed`, regression-tested and verified on the running proxy image (2026-09-25)
 - [ ] External OAuth discovery, JWKS, audience, scopes, PKCE, and client mode validated
 - [ ] PostgreSQL backup/restore and credential-key rotation tested
 - [ ] Monitoring, alerting, incident response, log retention, and abuse response approved
@@ -59,10 +59,10 @@ real production or publisher state and must not be marked complete with placehol
 - [x] Publishing route chosen: verified individual identity
 - [ ] Publisher name and legal/public pages aligned with the chosen verified identity
 - [x] Standard **With MCP** draft created in the global-residency project
-- [ ] Version, name, subtitle, descriptions, category, and both icon slots completed
-- [ ] Exact production MCP URL entered
-- [ ] Exact website, support, privacy, and terms URLs entered
-- [ ] Listing copy pasted from `submission/LISTING.md`
+- [x] Version, name, subtitle, descriptions, category, and both icon slots saved in the draft
+- [x] Exact production MCP URL entered
+- [x] Exact website, support, privacy, and terms URLs entered; public legal content still needs correction
+- [x] Listing copy saved in the draft
 - [ ] Demo recording URL entered
 - [ ] Commerce and purchasing declaration completed
 - [ ] Reviewer instructions and credentials entered
@@ -72,6 +72,11 @@ real production or publisher state and must not be marked complete with placehol
 - [ ] Country availability, release notes, and policy attestations completed
 - [ ] Final metadata preview matches the repository contract
 - [ ] Owner deliberately presses **Submit for review**
+
+The 2026-09-25 portal scan attempt saved the MCP draft with DCR selected and failed because Keycloak's
+Trusted Hosts policy rejected dynamic registration. The form can be switched to `Pre-defined` with
+client ID `nextcloud-chatgpt`, but this change and Scan Tools require the existing client secret to
+be entered securely. The domain challenge token remains unavailable until MCP configuration is saved.
 
 ## Never include
 
