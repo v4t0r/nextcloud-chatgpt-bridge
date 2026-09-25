@@ -91,7 +91,7 @@
       "redirectUris": [],
       "webOrigins": [],
       "defaultClientScopes": ["email", "nextcloud:use"],
-      "optionalClientScopes": [],
+      "optionalClientScopes": ["offline_access"],
       "attributes": {
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": ""
