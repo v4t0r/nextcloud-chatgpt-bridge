@@ -34,7 +34,7 @@ real production or publisher state and must not be marked complete with placehol
 - [x] Public MCP domain resolves to the reviewed deployment (2026-09-09)
 - [x] TLS and trusted proxy/host configuration validated (2026-09-09)
 - [x] Identified NPM 2.15.1 command-injection path patched with upstream `a5db5ed`, regression-tested and verified on the running proxy image (2026-09-25)
-- [ ] External OAuth discovery, JWKS, audience, scopes, PKCE, and client mode validated
+- [ ] Authenticated OAuth audience and end-to-end client flow validated; public discovery, JWKS, scopes, and PKCE checks pass (2026-09-27)
 - [ ] PostgreSQL backup/restore and credential-key rotation tested
 - [x] Daily encrypted bridge/Keycloak backups, 30-day local retention, and archive integrity checks configured (2026-09-25); off-host copy and restore drill remain open
 - [ ] Monitoring, alerting, incident response, log retention, and abuse response approved
@@ -75,13 +75,17 @@ real production or publisher state and must not be marked complete with placehol
 - [ ] Final metadata preview matches the repository contract
 - [ ] Owner deliberately presses **Submit for review**
 
-The 2026-09-25 portal scan now uses pre-defined client ID `nextcloud-chatgpt` and the client secret
-entered by the operator. Domain verification passed. The authenticated tool scan is still blocked:
-OpenAI requests `openid email offline_access nextcloud:use`, but the deployed Keycloak client rejects
-`offline_access` as `invalid_scope`. A read-only authorization probe passes without that scope and
-fails with it. The optional client-scope change is prepared, pending explicit authorization because
-it can permit offline refresh tokens. The realm currently has no users, so a reviewer identity and
-end-to-end scan remain separate gates even after this scope issue is fixed.
+The operator entered the pre-defined client secret and domain verification passed on 2026-09-25.
+The `offline_access` scope was then linked as an optional client scope with the operator's approval;
+authorization requests with and without it both reached the login page. The source and deployment
+were pushed as `fa7e88e`. On 2026-09-27, all 15 public bridge checks passed and the deployed
+client still had the exact callback, PKCE S256, default `email`/`nextcloud:use` scopes, and optional
+`offline_access`. The realm still had zero users. A fresh portal `Scan Tools` attempt failed before
+tool discovery: although the form displays `Pre-defined`, the portal attempted dynamic client
+registration and Keycloak's `Trusted Hosts` policy returned HTTP 403. Do not mark the scan complete
+or relax the registration policy based on this failed attempt. Re-enter the existing client secret
+in the portal and retry the scan; then establish a reviewer identity, synthetic Nextcloud connection,
+and authenticated acceptance evidence before submission.
 
 ## Never include
 
