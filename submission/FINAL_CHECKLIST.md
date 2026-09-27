@@ -63,7 +63,7 @@ real production or publisher state and must not be marked complete with placehol
 - [x] Standard **With MCP** draft created in the global-residency project
 - [x] Version, name, subtitle, descriptions, category, and both icon slots saved in the draft
 - [x] Exact production MCP URL entered
-- [ ] OpenAI portal `Scan Tools` imports the production tool set after the `sub` claim fix
+- [x] OpenAI portal `Scan Tools` imported all 25 production tools after the `sub` claim fix (2026-09-27)
 - [x] Exact website, support, privacy, and terms URLs entered; corrected public legal content deployed as Site version 5 (2026-09-25)
 - [x] Listing copy saved in the draft
 - [ ] Demo recording URL entered
@@ -108,9 +108,9 @@ public MCP endpoint rejected it with HTTP 401. On 2026-09-27 the live Keycloak r
 `basic` default client scope with an access-token `sub` mapper; the import template now includes
 the same change. A fresh reviewer authorization-code/PKCE flow then issued a token containing
 `sub` and the MCP audience. Public MCP `initialize` and `tools/list` both returned HTTP 200, with
-25 tools listed. **The OpenAI portal scan must still be rerun and observed** before claiming tool
-discovery there. A synthetic Nextcloud connection and authenticated acceptance evidence also
-remain required.
+25 tools listed. The OpenAI MCP Server draft now visibly contains 25 imported tools (75
+annotation-justification fields), shows the domain as verified, and offers `Continue`.
+A synthetic Nextcloud connection and authenticated acceptance evidence still remain required.
 
 ## Never include
 
