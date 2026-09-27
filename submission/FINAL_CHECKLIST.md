@@ -75,17 +75,16 @@ real production or publisher state and must not be marked complete with placehol
 - [ ] Final metadata preview matches the repository contract
 - [ ] Owner deliberately presses **Submit for review**
 
-The operator entered the pre-defined client secret and domain verification passed on 2026-09-25.
-The `offline_access` scope was then linked as an optional client scope with the operator's approval;
-authorization requests with and without it both reached the login page. The source and deployment
-were pushed as `fa7e88e`. On 2026-09-27, all 15 public bridge checks passed and the deployed
-client still had the exact callback, PKCE S256, default `email`/`nextcloud:use` scopes, and optional
-`offline_access`. The realm still had zero users. A fresh portal `Scan Tools` attempt failed before
-tool discovery: although the form displays `Pre-defined`, the portal attempted dynamic client
-registration and Keycloak's `Trusted Hosts` policy returned HTTP 403. Do not mark the scan complete
-or relax the registration policy based on this failed attempt. Re-enter the existing client secret
-in the portal and retry the scan; then establish a reviewer identity, synthetic Nextcloud connection,
-and authenticated acceptance evidence before submission.
+Domain verification passed on 2026-09-25. The `offline_access` scope was linked as an optional
+client scope with the operator's approval; the source and deployment were pushed as `fa7e88e`.
+On 2026-09-27, all 15 public bridge checks passed and the deployed client retained the exact
+callback, PKCE S256, default `email`/`nextcloud:use` scopes, and optional `offline_access`.
+The first portal retry attempted dynamic registration despite displaying `Pre-defined`, and
+Keycloak correctly rejected it with HTTP 403 `Trusted Hosts`. After the operator re-entered the
+pre-defined client secret, a second `Scan Tools` attempt reached the real Keycloak login page
+with the expected client ID, redirect, resource, PKCE S256, and requested scopes. **Tool discovery
+has not succeeded yet**: the realm still had zero users at that point. A disposable reviewer
+identity, synthetic Nextcloud connection, and authenticated acceptance evidence remain required.
 
 ## Never include
 
