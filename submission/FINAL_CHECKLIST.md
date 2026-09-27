@@ -85,8 +85,14 @@ pre-defined client secret, a second `Scan Tools` attempt reached the real Keyclo
 with the expected client ID, redirect, resource, PKCE S256, and requested scopes. A separate
 `openai-reviewer` account was then created after explicit approval. Its random password is stored
 only on the VM in a mode-0600 file, and its email is not marked verified. **Tool discovery has not
-succeeded yet**: the account must complete the OAuth login, then a synthetic Nextcloud connection
-and authenticated acceptance evidence remain required.
+succeeded yet**: the first login attempt used an expired authorization request (`expired_code`).
+A fresh portal request reached Keycloak, but the code-to-token exchange failed with `invalid_code`;
+the reviewer account had no active Keycloak session afterward. The portal returned to the plugin
+list instead of importing tools. A subsequent scan again attempted DCR and received HTTP 403,
+while the advanced form still displayed `Pre-defined` and an empty saved-secret placeholder.
+The operator is repeating the secret entry and immediate authorization. Do not claim OAuth or
+tool-scan success until the portal lists the imported tools. A synthetic Nextcloud connection and
+authenticated acceptance evidence also remain required.
 
 ## Never include
 
