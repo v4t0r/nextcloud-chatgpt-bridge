@@ -13,6 +13,26 @@
   "accessTokenLifespan": 300,
   "clientScopes": [
     {
+      "name": "basic",
+      "description": "Required subject identity for the bridge access token",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "sub",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "config": {
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
       "name": "email",
       "description": "Email address and actual verification status for workspace domain restrictions",
       "protocol": "openid-connect",
@@ -90,7 +110,7 @@
       "consentRequired": true,
       "redirectUris": [],
       "webOrigins": [],
-      "defaultClientScopes": ["email", "nextcloud:use"],
+      "defaultClientScopes": ["basic", "email", "nextcloud:use"],
       "optionalClientScopes": ["offline_access"],
       "attributes": {
         "pkce.code.challenge.method": "S256",

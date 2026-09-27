@@ -9,6 +9,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_email_scope_uses_real_verification_status_and_preserves_oauth_boundaries():
     realm = json.loads((ROOT / "deploy/keycloak/nextcloud-realm.json").read_text())
+    basic = next(scope for scope in realm["clientScopes"] if scope["name"] == "basic")
+    subject = next(mapper for mapper in basic["protocolMappers"] if mapper["name"] == "sub")
+    assert subject["protocolMapper"] == "oidc-sub-mapper"
+    assert subject["config"]["access.token.claim"] == "true"
     email = next(scope for scope in realm["clientScopes"] if scope["name"] == "email")
     mappers = {mapper["config"]["claim.name"]: mapper for mapper in email["protocolMappers"]}
     verified = mappers["email_verified"]
@@ -18,6 +22,7 @@ def test_email_scope_uses_real_verification_status_and_preserves_oauth_boundarie
     assert verified["config"]["jsonType.label"] == "boolean"
     assert mappers["email"]["config"]["userinfo.token.claim"] == "true"
     client = realm["clients"][0]
+    assert "basic" in client["defaultClientScopes"]
     assert "email" in client["defaultClientScopes"]
     assert client["attributes"]["pkce.code.challenge.method"] == "S256"
     assert client["publicClient"] is False

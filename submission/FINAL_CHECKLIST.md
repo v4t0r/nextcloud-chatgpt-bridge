@@ -34,7 +34,7 @@ real production or publisher state and must not be marked complete with placehol
 - [x] Public MCP domain resolves to the reviewed deployment (2026-09-09)
 - [x] TLS and trusted proxy/host configuration validated (2026-09-09)
 - [x] Identified NPM 2.15.1 command-injection path patched with upstream `a5db5ed`, regression-tested and verified on the running proxy image (2026-09-25)
-- [ ] Authenticated OAuth audience and end-to-end client flow validated; public discovery, JWKS, scopes, and PKCE checks pass (2026-09-27)
+- [x] Authenticated OAuth authorization-code/PKCE flow, MCP audience, and public `initialize`/`tools/list` validated with a fresh reviewer token (2026-09-27)
 - [ ] PostgreSQL backup/restore and credential-key rotation tested
 - [x] Daily encrypted bridge/Keycloak backups, 30-day local retention, and archive integrity checks configured (2026-09-25); off-host copy and restore drill remain open
 - [ ] Monitoring, alerting, incident response, log retention, and abuse response approved
@@ -63,6 +63,7 @@ real production or publisher state and must not be marked complete with placehol
 - [x] Standard **With MCP** draft created in the global-residency project
 - [x] Version, name, subtitle, descriptions, category, and both icon slots saved in the draft
 - [x] Exact production MCP URL entered
+- [ ] OpenAI portal `Scan Tools` imports the production tool set after the `sub` claim fix
 - [x] Exact website, support, privacy, and terms URLs entered; corrected public legal content deployed as Site version 5 (2026-09-25)
 - [x] Listing copy saved in the draft
 - [ ] Demo recording URL entered
@@ -97,12 +98,19 @@ After the operator entered the secret again, the scan reached `Authorize MCP`, b
 returned to the plugin list without imported tools. Keycloak logged another `invalid_code` during
 the token exchange at 2026-09-27 19:43:43 UTC. A controlled authorization-code/PKCE test run
 directly on the VM with the same reviewer identity, client, callback, resource, and secret-post
-method succeeded: token HTTP 200 with the MCP audience and expected scopes. This establishes that
-Keycloak can complete the flow, but does not establish why the portal exchange failed. The Codex
-desktop restarted at approximately 19:43:23 UTC during this attempt; Windows Application logs
-showed no registered application crash or dump. Do not claim portal OAuth or tool-scan success
-until the portal lists imported tools. A synthetic Nextcloud connection and authenticated
-acceptance evidence also remain required.
+method succeeded: token HTTP 200 with the MCP audience and expected scopes. The Codex desktop
+restarted at approximately 19:43:23 UTC during this attempt; Windows Application logs showed no
+registered application crash or dump.
+
+The subsequent `Scan Tools` retry reported `Authentication required`. A controlled fresh OAuth
+flow reproduced the decisive failure: Keycloak issued an access token without `sub`, and the
+public MCP endpoint rejected it with HTTP 401. On 2026-09-27 the live Keycloak realm received a
+`basic` default client scope with an access-token `sub` mapper; the import template now includes
+the same change. A fresh reviewer authorization-code/PKCE flow then issued a token containing
+`sub` and the MCP audience. Public MCP `initialize` and `tools/list` both returned HTTP 200, with
+25 tools listed. **The OpenAI portal scan must still be rerun and observed** before claiming tool
+discovery there. A synthetic Nextcloud connection and authenticated acceptance evidence also
+remain required.
 
 ## Never include
 
