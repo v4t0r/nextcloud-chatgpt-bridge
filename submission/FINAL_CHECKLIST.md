@@ -48,7 +48,7 @@ real production or publisher state and must not be marked complete with placehol
 
 ## Reviewer fixture
 
-- [ ] Disposable bridge reviewer identity created without MFA or private-network dependency
+- [x] Disposable bridge reviewer identity `openai-reviewer` created without MFA or private-network dependency (2026-09-27); Nextcloud binding remains open
 - [ ] Disposable non-admin Nextcloud account contains only synthetic fixture data
 - [ ] Reviewer connection root is restricted to the synthetic workspace
 - [ ] Positive and negative cases pass from ChatGPT
@@ -90,9 +90,19 @@ A fresh portal request reached Keycloak, but the code-to-token exchange failed w
 the reviewer account had no active Keycloak session afterward. The portal returned to the plugin
 list instead of importing tools. A subsequent scan again attempted DCR and received HTTP 403,
 while the advanced form still displayed `Pre-defined` and an empty saved-secret placeholder.
-The operator is repeating the secret entry and immediate authorization. Do not claim OAuth or
-tool-scan success until the portal lists the imported tools. A synthetic Nextcloud connection and
-authenticated acceptance evidence also remain required.
+After the next browser callback returned to the draft, a repeated `Scan Tools` still reported
+`Authentication required`; no imported tools appeared. The browser automation masks the password
+field as `<redacted>`, so its displayed value cannot establish whether the secret was persisted.
+After the operator entered the secret again, the scan reached `Authorize MCP`, but the callback
+returned to the plugin list without imported tools. Keycloak logged another `invalid_code` during
+the token exchange at 2026-09-27 19:43:43 UTC. A controlled authorization-code/PKCE test run
+directly on the VM with the same reviewer identity, client, callback, resource, and secret-post
+method succeeded: token HTTP 200 with the MCP audience and expected scopes. This establishes that
+Keycloak can complete the flow, but does not establish why the portal exchange failed. The Codex
+desktop restarted at approximately 19:43:23 UTC during this attempt; Windows Application logs
+showed no registered application crash or dump. Do not claim portal OAuth or tool-scan success
+until the portal lists imported tools. A synthetic Nextcloud connection and authenticated
+acceptance evidence also remain required.
 
 ## Never include
 
