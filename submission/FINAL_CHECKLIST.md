@@ -82,9 +82,11 @@ callback, PKCE S256, default `email`/`nextcloud:use` scopes, and optional `offli
 The first portal retry attempted dynamic registration despite displaying `Pre-defined`, and
 Keycloak correctly rejected it with HTTP 403 `Trusted Hosts`. After the operator re-entered the
 pre-defined client secret, a second `Scan Tools` attempt reached the real Keycloak login page
-with the expected client ID, redirect, resource, PKCE S256, and requested scopes. **Tool discovery
-has not succeeded yet**: the realm still had zero users at that point. A disposable reviewer
-identity, synthetic Nextcloud connection, and authenticated acceptance evidence remain required.
+with the expected client ID, redirect, resource, PKCE S256, and requested scopes. A separate
+`openai-reviewer` account was then created after explicit approval. Its random password is stored
+only on the VM in a mode-0600 file, and its email is not marked verified. **Tool discovery has not
+succeeded yet**: the account must complete the OAuth login, then a synthetic Nextcloud connection
+and authenticated acceptance evidence remain required.
 
 ## Never include
 
