@@ -159,7 +159,7 @@ def create_hosted_mcp(
             read_only_hint=False,
             destructive_hint=False,
             idempotent_hint=False,
-            open_world_hint=False,
+            open_world_hint=True,
         ),
     )
     def begin_nextcloud_connection(
@@ -182,7 +182,7 @@ def create_hosted_mcp(
             read_only_hint=False,
             destructive_hint=False,
             idempotent_hint=False,
-            open_world_hint=False,
+            open_world_hint=True,
         ),
     )
     def poll_nextcloud_connection(flow_id: str) -> ConnectionPollResult:

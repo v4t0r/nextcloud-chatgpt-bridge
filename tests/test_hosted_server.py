@@ -227,7 +227,9 @@ async def test_hosted_server_tool_contract_is_submission_complete():
             assert tool.annotations is not None
             assert tool.annotations.read_only_hint is read_only
             assert tool.annotations.destructive_hint is destructive
-            assert tool.annotations.open_world_hint is False
+            assert tool.annotations.open_world_hint is (
+                name in {"begin_nextcloud_connection", "poll_nextcloud_connection"}
+            )
             assert tool.annotations.idempotent_hint is idempotent
     finally:
         core.configure_settings_resolver(LocalSettingsResolver())

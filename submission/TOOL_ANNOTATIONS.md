@@ -1,7 +1,9 @@
 # Production tool annotations
 
-All tools operate against the authenticated user's private Nextcloud system, so
-`openWorldHint=false` throughout. A write can still be destructive even though it is closed-world.
+Established connections operate against the authenticated user's private Nextcloud system, so
+their tools use `openWorldHint=false`. Starting and polling Login Flow v2 can contact a
+user-specified Nextcloud host, so those two tools use `openWorldHint=true`. A write can still be
+destructive even though it is closed-world.
 
 | Tool | Read only | Destructive | Idempotent | Rationale |
 |---|---:|---:|---:|---|
