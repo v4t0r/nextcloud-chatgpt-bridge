@@ -75,11 +75,11 @@ real production or publisher state and must not be marked complete with placehol
 - [x] Domain challenge passes byte-for-byte and is verified in the portal (2026-09-25)
 - [x] Five positive and three negative cases entered in the draft (2026-09-27)
 - [x] Country availability and release notes entered in the draft (2026-09-27)
-- [ ] Policy attestations completed
+- [x] Six policy attestations confirmed by the publisher and saved in the review version (2026-09-28)
 - [ ] Final metadata preview matches the repository contract
-- [ ] Owner deliberately presses **Submit for review**
+- [x] Publisher explicitly authorized **Submit for Review**; portal confirmed submission and version `1.0.0` shows status `Review` (2026-09-28)
 
-At the 2026-09-28 checkpoint, the saved OpenAI draft contains 25 imported MCP tools and all 75
+At the 2026-09-28 checkpoint, the submitted OpenAI review version contains 25 imported MCP tools and all 75
 annotation justifications. The reviewer identity completes OAuth/PKCE, and its Nextcloud Login Flow
 completed under the dedicated root. The bridge's isolated network required deferring public DNS
 preflight to the validated egress proxy; this is deployed and the real Login Flow succeeded.
@@ -90,9 +90,10 @@ with a duplicate warning. The generated report was removed afterward so reviewer
 first-save case. In ChatGPT developer mode, the reviewer account listed the synthetic root, found
 the private read-only share, reviewed the fictional invoice, saved an immutable report once, rejected
 an identical duplicate, and rejected automatic payment. The generated report was deleted again and
-the Reviews folder verified empty. The protected test-credential field is saved in the OpenAI draft.
-The public demo recording is linked in the saved OpenAI draft. Remaining scenario coverage,
-policy attestations, and final submission remain open.
+the Reviews folder verified empty. The protected test-credential field is saved in the review version.
+The public demo recording is linked in the submitted OpenAI version. The portal confirmed submission
+and lists version `1.0.0` with status `Review`. Remaining scenario coverage and off-host backup are
+operational follow-ups; neither is recorded here as completed.
 
 ## Never include
 
