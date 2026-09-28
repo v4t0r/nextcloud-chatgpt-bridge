@@ -68,7 +68,7 @@ real production or publisher state and must not be marked complete with placehol
 - [x] OpenAI portal `Scan Tools` imported all 25 production tools after the `sub` claim fix (2026-09-27)
 - [x] Exact website, support, privacy, and terms URLs entered; corrected public legal content deployed as Site version 5 (2026-09-25)
 - [x] Listing copy saved in the draft
-- [ ] Demo recording URL entered
+- [x] [Public demo recording](https://raw.githubusercontent.com/v4t0r/nextcloud-chatgpt-bridge/main/submission/reviewer-demo.mp4) entered in the draft (2026-09-28)
 - [ ] Commerce and purchasing declaration completed
 - [x] Reviewer instructions and credentials entered (2026-09-28)
 - [x] Domain challenge token configured privately on the production VM (2026-09-25)
@@ -91,8 +91,8 @@ first-save case. In ChatGPT developer mode, the reviewer account listed the synt
 the private read-only share, reviewed the fictional invoice, saved an immutable report once, rejected
 an identical duplicate, and rejected automatic payment. The generated report was deleted again and
 the Reviews folder verified empty. The protected test-credential field is saved in the OpenAI draft.
-The public demo recording, remaining scenario coverage, policy attestations, and final submission
-remain open.
+The public demo recording is linked in the saved OpenAI draft. Remaining scenario coverage,
+policy attestations, and final submission remain open.
 
 ## Never include
 
