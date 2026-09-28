@@ -95,8 +95,10 @@ second DNS lookup. The bridge container is attached only to an internal network 
 external route. Local/self-hosted mode intentionally permits private-LAN Nextcloud servers.
 
 Hosted composition must use `build_hosted_connection_service`, which constructs `LoginFlowClient`
-with `PublicHostedPolicy`. The reference deployment additionally sets the egress proxy through
-`HTTPS_PROXY` and permits only PostgreSQL and proxy traffic on the internal network. Direct
+with `PublicHostedPolicy`. The policy resolves DNS during preflight by default. In the reference
+deployment, the exact `HTTPS_PROXY=http://egress:8080` and restricted `NO_PROXY` configuration
+defers DNS to the egress proxy because the bridge's internal-only network cannot resolve public
+names. The egress proxy still validates and pins every resolved public address. Direct
 `ConnectionService` construction remains available for local development and tests where
 private-LAN Nextcloud hosts are legitimate.
 

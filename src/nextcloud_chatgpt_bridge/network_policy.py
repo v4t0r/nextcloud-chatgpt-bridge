@@ -44,6 +44,7 @@ class PublicHostedPolicy:
     """
 
     allowed_ports: tuple[int, ...] = (443,)
+    resolve_dns: bool = True
 
     def validate_url(self, url: str) -> None:
         parsed = urlsplit(url)
@@ -70,6 +71,10 @@ class PublicHostedPolicy:
         try:
             literal = ipaddress.ip_address(normalized_host)
         except ValueError:
+            if not self.resolve_dns:
+                # The configured egress proxy resolves, validates and pins the address.
+                # The isolated application network cannot resolve external names itself.
+                return
             addresses = self._resolve(normalized_host, port)
         else:
             addresses = {literal}

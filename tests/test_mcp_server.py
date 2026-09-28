@@ -238,8 +238,7 @@ async def test_share_inventory_omits_internal_ids_and_tokens(monkeypatch):
             return None
 
         def list_shares(self, *, path, include_subfiles=False):
-            assert path == "/ChatGPT"
-            assert include_subfiles is True
+            assert path is None
             return [
                 ShareInfo(
                     share_id="internal-share-id",
@@ -249,7 +248,16 @@ async def test_share_inventory_omits_internal_ids_and_tokens(monkeypatch):
                     permissions=1,
                     shared_with="Demo User",
                     expiration=None,
-                )
+                ),
+                ShareInfo(
+                    share_id="outside-root",
+                    share_type=0,
+                    item_type="file",
+                    path="/Private/outside.txt",
+                    permissions=1,
+                    shared_with="Someone",
+                    expiration=None,
+                ),
             ]
 
     install_fake(monkeypatch)
@@ -257,9 +265,20 @@ async def test_share_inventory_omits_internal_ids_and_tokens(monkeypatch):
 
     async with Client(server.mcp) as client:
         result = await client.call_tool("list_nextcloud_shares", {})
+        exact = await client.call_tool(
+            "list_nextcloud_shares",
+            {"path": "Documents/shared.txt", "include_subfiles": False},
+        )
+        unrelated = await client.call_tool(
+            "list_nextcloud_shares",
+            {"path": "Other", "include_subfiles": True},
+        )
 
     assert result.is_error is False
     share = result.structured_content["shares"][0]
+    assert len(result.structured_content["shares"]) == 1
+    assert len(exact.structured_content["shares"]) == 1
+    assert unrelated.structured_content["shares"] == []
     assert share["path"] == "Documents/shared.txt"
     assert "share_id" not in share
     assert "token" not in str(share).lower()

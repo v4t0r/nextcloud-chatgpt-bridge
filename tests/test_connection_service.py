@@ -271,6 +271,19 @@ def test_hosted_service_builder_binds_public_target_policy():
 
     try:
         assert isinstance(service.login_client.target_policy, PublicHostedPolicy)
+        assert service.login_client.target_policy.resolve_dns is True
+    finally:
+        service.login_client.close()
+
+
+def test_hosted_service_defers_dns_only_when_egress_is_enforced():
+    service = build_hosted_connection_service(
+        connection_store=InMemoryConnectionStore(),
+        credential_store=InMemoryCredentialStore(),
+        egress_proxy_enforced=True,
+    )
+    try:
+        assert service.login_client.target_policy.resolve_dns is False
     finally:
         service.login_client.close()
 

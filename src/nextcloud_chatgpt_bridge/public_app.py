@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import hashlib
 import math
+import os
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -299,6 +300,10 @@ def create_public_app(
     connection_service = build_hosted_connection_service(
         connection_store=stores.connection_store,
         credential_store=stores.credential_store,
+        egress_proxy_enforced=(
+            os.environ.get("HTTPS_PROXY") == "http://egress:8080"
+            and os.environ.get("NO_PROXY") == "127.0.0.1,localhost,database,egress"
+        ),
     )
     household_service = HouseholdService(
         profile_store=stores.household_store,

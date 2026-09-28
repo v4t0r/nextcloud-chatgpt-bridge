@@ -62,3 +62,14 @@ def test_public_policy_accepts_global_dns_answers(monkeypatch):
 
     monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
     PublicHostedPolicy().validate_url("https://cloud.example.com")
+
+
+def test_public_policy_can_defer_dns_to_network_isolated_egress(monkeypatch):
+    def unexpected_lookup(*_args, **_kwargs):
+        raise AssertionError("Application must leave DNS resolution to the egress proxy")
+
+    monkeypatch.setattr(socket, "getaddrinfo", unexpected_lookup)
+    policy = PublicHostedPolicy(resolve_dns=False)
+    policy.validate_url("https://cloud.example.com")
+    with pytest.raises(TargetPolicyError, match="non-global"):
+        policy.validate_url("https://127.0.0.1")

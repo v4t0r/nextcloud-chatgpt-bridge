@@ -325,18 +325,23 @@ def list_nextcloud_shares(path: str = "", include_subfiles: bool = True) -> Shar
         root = settings.nextcloud_root_path.rstrip("/")
         absolute_path = root if not relative else f"{root}/{relative}"
         with _new_ocs_client() as client:
-            shares = client.list_shares(
-                path=absolute_path,
-                include_subfiles=include_subfiles,
-            )
+            # Nextcloud's `subfiles=true` does not reliably include shares nested
+            # below child folders. Fetch the bounded account inventory and enforce
+            # the workspace and requested path boundary before returning anything.
+            shares = client.list_shares(path=None)
         entries: list[ShareEntry] = []
         for share in shares:
             shared_path = share.path
-            if shared_path is not None:
-                normalized = str(PurePosixPath(shared_path))
-                if normalized != root and not normalized.startswith(f"{root}/"):
-                    continue
-                shared_path = normalized[len(root) :].lstrip("/")
+            if shared_path is None:
+                continue
+            normalized = str(PurePosixPath(shared_path))
+            if normalized != root and not normalized.startswith(f"{root}/"):
+                continue
+            if normalized != absolute_path and not (
+                include_subfiles and normalized.startswith(f"{absolute_path}/")
+            ):
+                continue
+            shared_path = normalized[len(root) :].lstrip("/")
             entries.append(
                 ShareEntry(
                     share_type=share.share_type,

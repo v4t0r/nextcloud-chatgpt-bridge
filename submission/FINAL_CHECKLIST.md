@@ -43,14 +43,15 @@ real production or publisher state and must not be marked complete with placehol
 - [ ] Concrete metadata, log, backup, inactive-account, and financial-data retention published
 - [ ] User export, disconnect, revocation, and deletion procedures tested
 - [x] Public website, support, privacy, and terms URLs return HTTPS 200 (2026-09-09)
-- [x] `nextcloud-chatgpt-preflight` passes against exact production URLs (2026-09-09; domain challenge not yet configured)
+- [x] `nextcloud-chatgpt-preflight` passes all 17 checks against exact production URLs, including domain challenge (2026-09-28)
 - [ ] Full hosted acceptance runbook passes with two isolated tenants
 
 ## Reviewer fixture
 
-- [x] Disposable bridge reviewer identity `openai-reviewer` created without MFA or private-network dependency (2026-09-27); Nextcloud binding remains open
-- [ ] Disposable non-admin Nextcloud account contains only synthetic fixture data
-- [ ] Reviewer connection root is restricted to the synthetic workspace
+- [x] Disposable bridge reviewer identity `openai-reviewer` created without MFA or private-network dependency (2026-09-27)
+- [x] `NC_bridge_demo` has the synthetic files, invoice, and one private read-only share inside the reviewer workspace (2026-09-28)
+- [x] Reviewer connection is bound to `NC_bridge_demo` with root `/ChatGPT-Reviewer` (2026-09-27)
+- [x] Public MCP file list, bounded search, text read, private share list, invoice review, and immutable duplicate detection passed with reviewer OAuth (2026-09-28)
 - [ ] Positive and negative cases pass from ChatGPT
 - [ ] Positive and negative cases pass from Codex where the review surface is available
 - [ ] Reviewer credentials stored only in OpenAI's protected submission field
@@ -71,46 +72,22 @@ real production or publisher state and must not be marked complete with placehol
 - [ ] Reviewer instructions and credentials entered
 - [x] Domain challenge token configured privately on the production VM (2026-09-25)
 - [x] Domain challenge passes byte-for-byte and is verified in the portal (2026-09-25)
-- [ ] Five positive and three negative cases entered and rerun successfully
-- [ ] Country availability, release notes, and policy attestations completed
+- [x] Five positive and three negative cases entered in the draft (2026-09-27)
+- [x] Country availability and release notes entered in the draft (2026-09-27)
+- [ ] Policy attestations completed
 - [ ] Final metadata preview matches the repository contract
 - [ ] Owner deliberately presses **Submit for review**
 
-Domain verification passed on 2026-09-25. The `offline_access` scope was linked as an optional
-client scope with the operator's approval; the source and deployment were pushed as `fa7e88e`.
-On 2026-09-27, all 15 public bridge checks passed and the deployed client retained the exact
-callback, PKCE S256, default `email`/`nextcloud:use` scopes, and optional `offline_access`.
-The first portal retry attempted dynamic registration despite displaying `Pre-defined`, and
-Keycloak correctly rejected it with HTTP 403 `Trusted Hosts`. After the operator re-entered the
-pre-defined client secret, a second `Scan Tools` attempt reached the real Keycloak login page
-with the expected client ID, redirect, resource, PKCE S256, and requested scopes. A separate
-`openai-reviewer` account was then created after explicit approval. Its random password is stored
-only on the VM in a mode-0600 file, and its email is not marked verified. **Tool discovery has not
-succeeded yet**: the first login attempt used an expired authorization request (`expired_code`).
-A fresh portal request reached Keycloak, but the code-to-token exchange failed with `invalid_code`;
-the reviewer account had no active Keycloak session afterward. The portal returned to the plugin
-list instead of importing tools. A subsequent scan again attempted DCR and received HTTP 403,
-while the advanced form still displayed `Pre-defined` and an empty saved-secret placeholder.
-After the next browser callback returned to the draft, a repeated `Scan Tools` still reported
-`Authentication required`; no imported tools appeared. The browser automation masks the password
-field as `<redacted>`, so its displayed value cannot establish whether the secret was persisted.
-After the operator entered the secret again, the scan reached `Authorize MCP`, but the callback
-returned to the plugin list without imported tools. Keycloak logged another `invalid_code` during
-the token exchange at 2026-09-27 19:43:43 UTC. A controlled authorization-code/PKCE test run
-directly on the VM with the same reviewer identity, client, callback, resource, and secret-post
-method succeeded: token HTTP 200 with the MCP audience and expected scopes. The Codex desktop
-restarted at approximately 19:43:23 UTC during this attempt; Windows Application logs showed no
-registered application crash or dump.
-
-The subsequent `Scan Tools` retry reported `Authentication required`. A controlled fresh OAuth
-flow reproduced the decisive failure: Keycloak issued an access token without `sub`, and the
-public MCP endpoint rejected it with HTTP 401. On 2026-09-27 the live Keycloak realm received a
-`basic` default client scope with an access-token `sub` mapper; the import template now includes
-the same change. A fresh reviewer authorization-code/PKCE flow then issued a token containing
-`sub` and the MCP audience. Public MCP `initialize` and `tools/list` both returned HTTP 200, with
-25 tools listed. The OpenAI MCP Server draft now visibly contains 25 imported tools (75
-annotation-justification fields), shows the domain as verified, and offers `Continue`.
-A synthetic Nextcloud connection and authenticated acceptance evidence still remain required.
+At the 2026-09-28 checkpoint, the saved OpenAI draft contains 25 imported MCP tools and all 75
+annotation justifications. The reviewer identity completes OAuth/PKCE, and its Nextcloud Login Flow
+completed under the dedicated root. The bridge's isolated network required deferring public DNS
+preflight to the validated egress proxy; this is deployed and the real Login Flow succeeded.
+Nextcloud's OCS `subfiles` flag omitted the nested private share, so the bridge now fetches the
+bounded share inventory and filters it by the connected workspace root before returning metadata.
+The first synthetic invoice review save returned `saved=true`; the second returned `saved=false`
+with a duplicate warning. The generated report was removed afterward so reviewers can repeat the
+first-save case. Full ChatGPT/Codex interaction, a demo recording URL, protected reviewer credentials,
+policy attestations, and final submission remain open.
 
 ## Never include
 

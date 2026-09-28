@@ -254,10 +254,13 @@ def build_hosted_connection_service(
     *,
     connection_store: ConnectionStore,
     credential_store: CredentialStore,
+    egress_proxy_enforced: bool = False,
 ) -> ConnectionService:
     """Compose hosted account linking with the strict public target policy."""
     return ConnectionService(
         connection_store=connection_store,
         credential_store=credential_store,
-        login_client=LoginFlowClient(target_policy=PublicHostedPolicy()),
+        login_client=LoginFlowClient(
+            target_policy=PublicHostedPolicy(resolve_dns=not egress_proxy_enforced)
+        ),
     )
