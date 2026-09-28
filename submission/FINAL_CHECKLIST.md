@@ -52,7 +52,7 @@ real production or publisher state and must not be marked complete with placehol
 - [x] `NC_bridge_demo` has the synthetic files, invoice, and one private read-only share inside the reviewer workspace (2026-09-28)
 - [x] Reviewer connection is bound to `NC_bridge_demo` with root `/ChatGPT-Reviewer` (2026-09-27)
 - [x] Public MCP file list, bounded search, text read, private share list, invoice review, and immutable duplicate detection passed with reviewer OAuth (2026-09-28)
-- [x] ChatGPT developer-mode smoke test: root list, bounded search, root-wide private share, fictional invoice review, and refusal to pay (2026-09-28)
+- [x] ChatGPT developer-mode smoke test: root list, bounded search, root-wide private share, fictional invoice review, duplicate-safe save, and refusal to pay (2026-09-28)
 - [ ] Positive and negative cases pass from ChatGPT
 - [ ] Positive and negative cases pass from Codex where the review surface is available
 - [x] Reviewer credentials stored only in OpenAI's protected submission field (entered by the owner, 2026-09-28)
@@ -88,9 +88,11 @@ bounded share inventory and filters it by the connected workspace root before re
 The first synthetic invoice review save returned `saved=true`; the second returned `saved=false`
 with a duplicate warning. The generated report was removed afterward so reviewers can repeat the
 first-save case. In ChatGPT developer mode, the reviewer account listed the synthetic root, found
-the private read-only share, reviewed the fictional invoice without writing, and rejected automatic
-payment. The protected test-credential field is saved in the OpenAI draft. The public demo recording,
-remaining scenario coverage, policy attestations, and final submission remain open.
+the private read-only share, reviewed the fictional invoice, saved an immutable report once, rejected
+an identical duplicate, and rejected automatic payment. The generated report was deleted again and
+the Reviews folder verified empty. The protected test-credential field is saved in the OpenAI draft.
+The public demo recording, remaining scenario coverage, policy attestations, and final submission
+remain open.
 
 ## Never include
 
