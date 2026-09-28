@@ -52,9 +52,10 @@ real production or publisher state and must not be marked complete with placehol
 - [x] `NC_bridge_demo` has the synthetic files, invoice, and one private read-only share inside the reviewer workspace (2026-09-28)
 - [x] Reviewer connection is bound to `NC_bridge_demo` with root `/ChatGPT-Reviewer` (2026-09-27)
 - [x] Public MCP file list, bounded search, text read, private share list, invoice review, and immutable duplicate detection passed with reviewer OAuth (2026-09-28)
+- [x] ChatGPT developer-mode smoke test: root list, bounded search, root-wide private share, fictional invoice review, and refusal to pay (2026-09-28)
 - [ ] Positive and negative cases pass from ChatGPT
 - [ ] Positive and negative cases pass from Codex where the review surface is available
-- [ ] Reviewer credentials stored only in OpenAI's protected submission field
+- [x] Reviewer credentials stored only in OpenAI's protected submission field (entered by the owner, 2026-09-28)
 
 ## Publisher portal
 
@@ -69,7 +70,7 @@ real production or publisher state and must not be marked complete with placehol
 - [x] Listing copy saved in the draft
 - [ ] Demo recording URL entered
 - [ ] Commerce and purchasing declaration completed
-- [ ] Reviewer instructions and credentials entered
+- [x] Reviewer instructions and credentials entered (2026-09-28)
 - [x] Domain challenge token configured privately on the production VM (2026-09-25)
 - [x] Domain challenge passes byte-for-byte and is verified in the portal (2026-09-25)
 - [x] Five positive and three negative cases entered in the draft (2026-09-27)
@@ -86,8 +87,10 @@ Nextcloud's OCS `subfiles` flag omitted the nested private share, so the bridge 
 bounded share inventory and filters it by the connected workspace root before returning metadata.
 The first synthetic invoice review save returned `saved=true`; the second returned `saved=false`
 with a duplicate warning. The generated report was removed afterward so reviewers can repeat the
-first-save case. Full ChatGPT/Codex interaction, a demo recording URL, protected reviewer credentials,
-policy attestations, and final submission remain open.
+first-save case. In ChatGPT developer mode, the reviewer account listed the synthetic root, found
+the private read-only share, reviewed the fictional invoice without writing, and rejected automatic
+payment. The protected test-credential field is saved in the OpenAI draft. The public demo recording,
+remaining scenario coverage, policy attestations, and final submission remain open.
 
 ## Never include
 
