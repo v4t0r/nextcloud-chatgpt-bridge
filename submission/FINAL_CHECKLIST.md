@@ -43,7 +43,7 @@ real production or publisher state and must not be marked complete with placehol
 - [ ] Concrete metadata, log, backup, inactive-account, and financial-data retention published
 - [ ] User export, disconnect, revocation, and deletion procedures tested
 - [x] Public website, support, privacy, and terms URLs return HTTPS 200 (2026-09-09)
-- [x] `nextcloud-chatgpt-preflight` passes all 17 checks against exact production URLs, including domain challenge (2026-09-28)
+- [x] `nextcloud-chatgpt-preflight` passes all 17 checks against exact production URLs, including domain challenge (reverified 2026-10-01)
 - [ ] Full hosted acceptance runbook passes with two isolated tenants
 
 ## Reviewer fixture
@@ -94,6 +94,13 @@ the Reviews folder verified empty. The protected test-credential field is saved 
 The public demo recording is linked in the submitted OpenAI version. The portal confirmed submission
 and lists version `1.0.0` with status `Review`. Remaining scenario coverage and off-host backup are
 operational follow-ups; neither is recorded here as completed.
+
+On 2026-10-01 the portal still reports package `1.0.0` **In review** and **Not published**.
+The refreshed MCP scan holds six tools on the private-account/open-world classification and
+13 others for further review. Metadata clarification `4ae7e25` is deployed and pushed; fresh reviewer
+OAuth, all 25 tool definitions, and the synthetic root list passed. See the
+[review checkpoint and technical support draft](REVIEW_STATUS_2026-10-01.md). Publication requires
+OpenAI approval and the remaining MCP checks; no approval or publication is claimed.
 
 ## Never include
 
