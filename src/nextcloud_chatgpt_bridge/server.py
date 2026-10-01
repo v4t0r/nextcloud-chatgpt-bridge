@@ -165,7 +165,10 @@ def _translate_error(exc: Exception) -> ToolError:
     annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False),
 )
 def get_nextcloud_capabilities() -> CapabilityReport:
-    """Inspect server/app capability hints used to choose native Nextcloud or fallback providers."""
+    """Read capability hints only from the user's authenticated, connected Nextcloud server.
+
+    The destination is the stored account connection, not an arbitrary URL or public web search.
+    """
     try:
         settings = _safe_settings()
         with _new_ocs_client() as client:
@@ -184,7 +187,10 @@ def get_nextcloud_capabilities() -> CapabilityReport:
     ),
 )
 def get_nextcloud_app_accesses() -> AppAccessReport:
-    """Inventory user-visible apps and safe bridge access levels without administrator APIs."""
+    """Read apps visible to the user's connected private Nextcloud account.
+
+    Uses only that account's stored server and permissions; no administrator APIs or other hosts.
+    """
     try:
         settings = _safe_settings()
         warnings: list[str] = []
@@ -216,7 +222,10 @@ def get_nextcloud_app_accesses() -> AppAccessReport:
     annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False),
 )
 async def probe_native_nextcloud_mcp() -> NativeMCPStatus:
-    """Check whether Nextcloud Context Agent MCP is reachable; never invokes a native tool."""
+    """Check MCP availability only on the user's stored Nextcloud account connection.
+
+    Performs discovery without invoking a native tool or contacting an unrelated destination.
+    """
     settings = _safe_settings()
     endpoint = context_agent_mcp_url(settings)
     try:
@@ -242,7 +251,10 @@ async def probe_native_nextcloud_mcp() -> NativeMCPStatus:
     annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False),
 )
 def list_files(path: str = "") -> FileListResult:
-    """List direct children of a folder inside the configured Nextcloud root."""
+    """List direct children inside the user's connected private Nextcloud workspace root.
+
+    Paths are relative to that root; this cannot browse another account, host, or the public web.
+    """
     try:
         with _new_client() as client:
             entries = client.list_files(path)
@@ -265,7 +277,10 @@ def search_files(
     max_results: int = 20,
     max_depth: int = 4,
 ) -> FileSearchResult:
-    """Search names below one workspace folder without crossing the configured root."""
+    """Search filenames only inside the user's connected private Nextcloud workspace root.
+
+    This is a bounded account search, not public web search or a search of other destinations.
+    """
     try:
         normalized_query = query.strip().casefold()
         if not normalized_query or len(normalized_query) > 256:
@@ -318,7 +333,10 @@ def search_files(
     ),
 )
 def list_nextcloud_shares(path: str = "", include_subfiles: bool = True) -> ShareListResult:
-    """List credential-free share metadata constrained to the configured workspace root."""
+    """Read existing share metadata only for items inside the user's private workspace root.
+
+    Uses the connected account's permissions; never creates shares or publishes file content.
+    """
     try:
         settings = _safe_settings()
         relative = "" if not path.strip() else normalize_relative_path(path, field_name="Share path")
@@ -362,7 +380,10 @@ def list_nextcloud_shares(path: str = "", include_subfiles: bool = True) -> Shar
     annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False),
 )
 def get_file_info(path: str) -> FileEntry:
-    """Get metadata for one file or folder inside the configured Nextcloud root."""
+    """Read one item's metadata inside the user's connected private Nextcloud workspace root.
+
+    The relative path cannot select another account, host, or public internet resource.
+    """
     try:
         with _new_client() as client:
             return _entry(client.stat(path))
@@ -375,7 +396,10 @@ def get_file_info(path: str) -> FileEntry:
     annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False),
 )
 def read_text_file(path: str) -> TextFileResult:
-    """Read a UTF-8 text file, subject to the configured MCP transfer size limit."""
+    """Read bounded UTF-8 content from the user's connected private Nextcloud workspace root.
+
+    Enforces the transfer size limit and cannot fetch arbitrary URLs or files outside that root.
+    """
     try:
         settings = _safe_settings()
         with _new_client() as client:
@@ -395,7 +419,10 @@ def read_text_file(path: str) -> TextFileResult:
     annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False),
 )
 def download_file_base64(path: str) -> Base64FileResult:
-    """Download a small binary file as base64, subject to the MCP transfer size limit."""
+    """Read one small binary file from the user's private Nextcloud workspace as base64.
+
+    Enforces the transfer size limit; the destination is the stored account, not an arbitrary URL.
+    """
     try:
         settings = _safe_settings()
         with _new_client() as client:
@@ -424,7 +451,10 @@ def download_file_base64(path: str) -> Base64FileResult:
     ),
 )
 def write_text_file(path: str, content: str, overwrite: bool = False) -> FileEntry:
-    """Write a UTF-8 text file. Existing files are protected unless overwrite is explicitly true."""
+    """Write UTF-8 content only inside the user's connected private Nextcloud workspace root.
+
+    Existing files require overwrite=true. Does not publish content, create shares, or send messages.
+    """
     try:
         settings = _safe_settings()
         payload = content.encode("utf-8")
@@ -446,7 +476,10 @@ def write_text_file(path: str, content: str, overwrite: bool = False) -> FileEnt
     ),
 )
 def upload_file_base64(path: str, content_base64: str, overwrite: bool = False) -> FileEntry:
-    """Upload a small binary file from strict base64 data, subject to the transfer size limit."""
+    """Write a small binary file only inside the user's private Nextcloud workspace root.
+
+    Enforces strict base64 and size limits. Existing files require overwrite=true; no public sharing.
+    """
     try:
         settings = _safe_settings()
         payload = base64.b64decode(content_base64, validate=True)
@@ -468,7 +501,10 @@ def upload_file_base64(path: str, content_base64: str, overwrite: bool = False) 
     ),
 )
 def create_folder(path: str) -> FileEntry:
-    """Create a folder inside the configured Nextcloud root."""
+    """Create one folder only inside the user's connected private Nextcloud workspace root.
+
+    Uses the stored account connection; does not create public shares or contact another host.
+    """
     try:
         with _new_client() as client:
             return _entry(client.create_folder(path))
@@ -486,7 +522,10 @@ def create_folder(path: str) -> FileEntry:
     ),
 )
 def move_file(source: str, destination: str, overwrite: bool = False) -> FileEntry:
-    """Move or rename a file/folder inside the configured root."""
+    """Move or rename an item within the user's connected private Nextcloud workspace root.
+
+    Both paths stay inside the same account and root; no transfer to another host or recipient.
+    """
     try:
         with _new_client() as client:
             return _entry(client.move(source, destination, overwrite=overwrite))
@@ -504,7 +543,10 @@ def move_file(source: str, destination: str, overwrite: bool = False) -> FileEnt
     ),
 )
 def delete_file(path: str) -> OperationResult:
-    """Delete one file or folder. Deleting the configured root itself is always refused."""
+    """Delete one item only inside the user's connected private Nextcloud workspace root.
+
+    Deleting the root itself is refused. Cannot target another account, host, or arbitrary URL.
+    """
     try:
         with _new_client() as client:
             client.delete(path)

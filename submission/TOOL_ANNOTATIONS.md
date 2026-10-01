@@ -1,9 +1,21 @@
 # Production tool annotations
 
-Established connections operate against the authenticated user's private Nextcloud system, so
-their tools use `openWorldHint=false`. Starting and polling Login Flow v2 can contact a
-user-specified Nextcloud host, so those two tools use `openWorldHint=true`. A write can still be
-destructive even though it is closed-world.
+Established connections operate against the authenticated user's bounded private Nextcloud account
+and workspace root, so their tools use `openWorldHint=false`. They use the server stored in that
+owned connection; file paths cannot select a different host or escape the configured root. The
+tools do not browse the public web, create public shares, or send content to arbitrary recipients.
+Capability discovery is restricted to the same authenticated account's server and permissions.
+Disconnect revokes only that owned account's app password at its stored server. Metadata-only
+connection and household-profile tools operate on owned bridge records.
+
+Starting and polling Login Flow v2 can contact a user-specified Nextcloud host, so those two tools
+use `openWorldHint=true`. A write can still be destructive inside a private workspace.
+
+This follows the [OpenAI annotation guidance](https://developers.openai.com/plugins/reference#annotations):
+external hosting alone does not make a bounded private account open-world. The 2026-09-30 automated
+review nevertheless flagged 13 tools for external-system access and held six others for further
+review. The descriptions now state the private-account boundary explicitly; annotation booleans,
+tool schemas, authorization, and root enforcement remain unchanged.
 
 | Tool | Read only | Destructive | Idempotent | Rationale |
 |---|---:|---:|---:|---|
