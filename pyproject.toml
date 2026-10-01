@@ -39,7 +39,7 @@ dependencies = [
 hosted = [
   "cryptography>=50,<51",
   "psycopg[binary]>=3.3.4,<4",
-  "SQLAlchemy>=2.0.51,<2.1",
+  "SQLAlchemy>=2.0.51,<2.2",
   "uvicorn>=0.41,<1",
 ]
 dev = [
@@ -49,7 +49,7 @@ dev = [
   "pytest-cov>=7,<8",
   "PyYAML>=6,<7",
   "ruff>=0.6,<1",
-  "SQLAlchemy>=2.0.51,<2.1",
+  "SQLAlchemy>=2.0.51,<2.2",
 ]
 release = [
   "build>=1.3,<2",
