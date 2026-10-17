@@ -14,6 +14,12 @@
 - Original local MOV recordings are excluded from Git/source distributions; the previously
   authorized public demo MP4 is preserved.
 - Git release version is 0.3.2; the existing directory package uses 1.0.1 after its previous 1.0.0.
+- Release commit `e546876ab920094c2fd70596dae7f14a6c222e63` and tag `v0.3.2` are pushed.
+- [CI](https://github.com/v4t0r/nextcloud-chatgpt-bridge/actions/runs/39071383019) passed, including
+  Python 3.11–3.14, package checks and the Docker deployment smoke test.
+- [Release workflow](https://github.com/v4t0r/nextcloud-chatgpt-bridge/actions/runs/39071383080)
+  passed. The [published GitHub release](https://github.com/v4t0r/nextcloud-chatgpt-bridge/releases/tag/v0.3.2)
+  contains wheel, source archive, directory ZIP 1.0.1 and SHA256SUMS.
 
 ## OpenAI portal: submission blocked, not published
 
