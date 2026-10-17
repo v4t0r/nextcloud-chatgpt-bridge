@@ -48,14 +48,73 @@ decision. The current public app intentionally exposes no payment authority.
 - complete end-to-end ChatGPT and Codex acceptance
 - submit for OpenAI review, remediate findings, and publish only after approval
 
-## v0.4 — broader Nextcloud providers
+## v0.3.2 — submission recovery (2026-10-17)
 
-- CalDAV calendars and tasks with read/write separation
-- CardDAV contacts with minimized response fields
-- provider interfaces for Talk, Deck, Notes, Collectives, and Tables
-- tags and file-version metadata where root scope can be enforced
-- explicit capability negotiation between native Nextcloud MCP and standards/API fallbacks
-- explicit connection selection for tenants with multiple active Nextcloud accounts
+- Restore a complete portable directory package with `mcp.json`, fixed OAuth client metadata,
+  verified publisher metadata, legal links, logo and workspace skill.
+- Preserve the existing directory package name; directory version 1.0.1 is separate from runtime
+  0.3.2. Upload, successful scan, submission, approval and publication are distinct gates.
+- Refresh dependency/security checks and explicitly validate the OAuth resource in the MCP SDK.
+- First finish the current Files/invoice submission. Do not mix unfinished provider features into it.
+
+## v0.4 — Talk and provider foundation
+
+1. Introduce a provider registry with app/API capabilities, version checks and explicit connection
+   selection. Continue using tenant-owned encrypted Nextcloud Login Flow credentials.
+2. Add opt-in, tenant-scoped resource grants: selected Talk conversations, later calendars,
+   address books and boards. A Files workspace root does not authorize these other applications.
+3. Implement bounded `list_talk_conversations` and `read_talk_messages`, with pagination, message
+   limits and minimized metadata. Treat messages and attachments as untrusted data.
+4. Read chat history without side effects: `setReadMarker=0`, `noStatusUpdate=1`, and
+   `markNotificationsAsRead=0` where the server advertises `chat-keep-notifications`. If side effects
+   cannot be prevented on the installed version, do not label that operation read-only.
+5. Add a separate send operation only after explicit recipient/conversation and text approval;
+   require a bounded conversation grant and handle ambiguous retries without duplicate posting.
+   Do not add public-room creation, invitations, calls or federation administration initially.
+
+Acceptance: two real isolated test tenants, forbidden-room and revoked-grant tests, version/capability
+fallback tests, pagination/limits, no read-marker changes, send-confirmation and retry tests,
+accurate annotations and a fresh OpenAI tool scan. A test proving read-only behavior is required
+before advertising `readOnlyHint=true`. No unrestricted REST or `occ` command tool.
+
+## v0.5 — Calendar, Tasks and Contacts
+
+- CalDAV calendars/events and VTODO tasks; CardDAV address books/contacts.
+- Explicit selection of collections; minimal field sets, bounded time windows and result counts.
+- Separate read/create/update/delete tools with ETag/If-Match conflict protection.
+- Test recurrence, all-day events, timezones/DST and malformed iCalendar/vCard content.
+- Invitations, attendee changes and notification-producing actions require separate consent and
+  annotations; reading or editing an event must not silently email participants.
+- Complete per-provider two-tenant and collection-isolation acceptance and review before release.
+
+## v0.6 — Notes and Deck
+
+- Notes through its documented app API; selected notes/categories and bounded content.
+- Deck through its documented API; selected boards, stacks and cards, with assignment/notification
+  side effects surfaced before writes. Permission-denied and missing-app paths are explicit.
+- Add root-scoped file versions/tags only where the upstream API preserves the existing boundary.
+
+## v0.7 and later — Tables, Collectives and additional apps
+
+- Assess Tables and Collectives individually for stable documented APIs and resource permissions.
+- Maintain a compatibility matrix of tested Nextcloud/app versions and capabilities. An installed
+  app or an `occ` command is not proof that a stable user-level remote API exists.
+- Mail, administration, app installation and unrestricted search remain separate design decisions.
+- Prefer documented OCS/REST, WebDAV, CalDAV and CardDAV APIs. Do not use database/ODBC access to
+  bypass application authorization, and do not expose arbitrary shell/`occ` arguments through MCP.
+- If a genuine administration feature is required later, design a separate local administrator
+  service with an explicit command allowlist, audit trail and permissions; never bundle it with
+  the public user-level bridge by default.
+
+### Sources checked on 2026-10-17
+
+- [Talk chat API](https://nextcloud-talk.readthedocs.io/en/stable/chat/)
+- [Nextcloud OCS API overview](https://docs.nextcloud.com/server/stable/developer_manual/client_apis/OCS/ocs-api-overview.html)
+- [DAV and database administration commands](https://docs.nextcloud.com/server/stable/admin_manual/occ_database.html)
+- [OpenAI package format](https://developers.openai.com/plugins/build/plugins)
+
+The public documentation currently targets newer Nextcloud releases; actual support must be
+verified against the user's installed app versions. These releases are planned, not implemented.
 
 ## Native Nextcloud app / OpenAI API track
 

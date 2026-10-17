@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "nextcloud": {
+      "type": "streamable-http",
+      "url": "https://mcp.ooh.world/mcp",
+      "extensions": {
+        "com.openai": {
+          "auth": {
+            "type": "oauth",
+            "client": {
+              "mode": "provided",
+              "clientId": "nextcloud-chatgpt",
+              "tokenEndpointAuthMethod": "client_secret_post"
+            },
+            "authorizationUrl": "https://g.ooh.world/realms/nextcloud/protocol/openid-connect/auth",
+            "tokenUrl": "https://g.ooh.world/realms/nextcloud/protocol/openid-connect/token",
+            "baseScopes": ["openid", "email", "offline_access", "nextcloud:use"]
+          }
+        }
+      }
+    }
+  }
+}

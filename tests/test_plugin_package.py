@@ -1,11 +1,40 @@
 from __future__ import annotations
 
 import json
+import runpy
 from pathlib import Path
+from zipfile import ZipFile
 
 import yaml
 
 from nextcloud_chatgpt_bridge import __version__
+
+
+def test_submission_zip_contains_authenticated_mcp_and_preserves_directory_identity(tmp_path):
+    root = _project_root()
+    builder = runpy.run_path(str(root / "scripts" / "build_submission.py"))
+    archive = builder["build_package"](root, tmp_path / "submission.zip")
+    with ZipFile(archive) as package:
+        assert set(package.namelist()) == {
+            "plugin.json", "mcp.json", "assets/nextcloud-bridge-mark.png",
+            "skills/nextcloud-workspace/SKILL.md",
+        }
+        manifest = json.loads(package.read("plugin.json"))
+        assert manifest["name"] == "app-6a91e995840081918f48e8cd5d8cefff"
+        assert manifest["version"] == "1.0.1"
+        assert manifest["extensions"]["com.openai"]["interface"]["developerName"] == "Jens Zimmermann"
+        server = json.loads(package.read("mcp.json"))["mcpServers"]["nextcloud"]
+        assert server["url"] == "https://mcp.ooh.world/mcp"
+        auth = server["extensions"]["com.openai"]["auth"]
+        assert auth["type"] == "oauth"
+        assert auth["client"] == {
+            "mode": "provided", "clientId": "nextcloud-chatgpt",
+            "tokenEndpointAuthMethod": "client_secret_post",
+        }
+        assert "nextcloud:use" in auth["baseScopes"]
+        assert "clientSecret" not in package.read("mcp.json").decode()
+    second = builder["build_package"](root, tmp_path / "second.zip")
+    assert archive.read_bytes() == second.read_bytes()
 
 
 def _project_root() -> Path:

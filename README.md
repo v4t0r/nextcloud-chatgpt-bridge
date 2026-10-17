@@ -12,8 +12,10 @@ Product website: [nextcloud-for-chatgpt.v4t0r.chatgpt.site](https://nextcloud-fo
 
 ## Release status
 
-`v0.3.1` is the hardened deployment release candidate. OpenAI submission remains subject to
-the unchecked gates in `submission/FINAL_CHECKLIST.md`; a source release is not store approval.
+`v0.3.2` is the current maintenance release. The production MCP endpoint and reviewer OAuth were
+verified on 2026-10-17. OpenAI directory publication is blocked by an unavailable existing MCP
+configuration in the submission portal; the app is not published. See the
+[current checkpoint](submission/REVIEW_STATUS_2026-10-17.md). A source release is not store approval.
 
 The repository contains the application-side pieces required for a universal OAuth-protected MCP
 service:
@@ -29,9 +31,8 @@ service:
 - a Codex plugin package plus reviewer-ready OpenAI listing and test material
 - a production landing site with privacy, terms, support, and security pages
 
-The source release does **not** claim an active public service or OpenAI approval. Public availability
-still requires an operator-controlled production domain, external OAuth configuration, reviewer
-fixture, verified publisher identity, and successful OpenAI review.
+The production service is deployed, but this source release does **not** claim OpenAI approval.
+Self-hosted installations require their own production domain, OAuth configuration and credentials.
 
 The MCP bridge itself works without directory publication. Codex CLI, ChatGPT desktop, and the
 Codex IDE extension can connect directly; compatible remote MCP hosts can use a deployed HTTPS

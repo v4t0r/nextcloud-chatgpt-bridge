@@ -39,6 +39,7 @@ def test_mcp_auth_settings_publish_issuer_resource_and_scopes():
     assert str(auth.issuer_url) == "https://auth.example.com/"
     assert str(auth.resource_server_url) == "https://bridge.example.com/mcp"
     assert auth.required_scopes == ["nextcloud:use", "nextcloud:files"]
+    assert auth.validate_token_resource is True
     assert isinstance(verifier, OIDCTokenVerifier)
 
 

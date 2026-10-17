@@ -213,6 +213,9 @@ tempCodeRunnerFile.py
 # Production secret material
 deploy/secrets/
 
+# Keep original local recordings out of Git and source distributions.
+/submission/*.mov
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

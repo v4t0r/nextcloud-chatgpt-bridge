@@ -10,7 +10,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
-RUN pip install ".[hosted]"
+RUN pip install --upgrade "pip>=26.2,<27" && pip install ".[hosted]"
 
 FROM ${PYTHON_IMAGE} AS runtime
 

@@ -160,6 +160,7 @@ def build_mcp_auth(config: HostedAuthConfig) -> tuple[AuthSettings, OIDCTokenVer
             issuer_url=config.issuer_url,
             resource_server_url=config.resource_server_url,
             required_scopes=config.scope_list,
+            validate_token_resource=True,
         ),
         OIDCTokenVerifier(config),
     )

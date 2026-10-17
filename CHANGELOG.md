@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-10-17
+
+### Fixed
+
+- Complete portable OpenAI submission package with explicit remote MCP and predefined OAuth
+  configuration, verified publisher metadata, legal links, icon and workspace skill.
+- Explicit MCP resource-token validation in addition to pinned JWT issuer/audience validation.
+- Upgrade pip in the container build environment to the audited 26.2-or-newer release line.
+
+### Added
+
+- Reproducible allowlisted submission ZIP builder preserving the existing directory identity.
+- Staged Nextcloud app-provider plan for v0.4, v0.5 and subsequent releases.
+
 ## [0.3.1] - 2026-09-09
 
 ### Added
