@@ -61,10 +61,14 @@ The attempted new-case action was blocked by automatic approval review because t
 support authorization did not clearly cover creation of a new case. The user explicitly approved
 this new case on 2026-10-19. The message below was then sent through the authenticated OpenAI Help
 Center chat and was visibly present in the conversation as a user message. It contains no credentials
-or private Nextcloud data. A new case number and a specialist escalation are not yet confirmed.
+or private Nextcloud data. The AI-assisted support responder replied with four clarification
+questions. We answered them in the same conversation: this is a public developer-platform directory
+submission, not a workspace connector; the exact RBAC role has not been reverified; the affected
+management URL and disabled controls were identified; the exact ZIP finding text was confirmed.
+We requested specialist escalation and explicitly avoided claiming an unverified owner/admin role.
+A new case number and a specialist escalation are not yet confirmed.
 The management portal was reloaded on 2026-10-19 and still showed Not published / Changes required /
-Configuration unavailable with Rescan disabled. The new support chat remained in its response-loading
-state during verification; no duplicate message was sent.
+Configuration unavailable with Rescan disabled. No duplicate initial message was sent.
 
 ### Technical support message
 
