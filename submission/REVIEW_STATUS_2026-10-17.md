@@ -53,13 +53,18 @@ in its registered-client example. The package follows that documented OAuth layo
 schema compliance is therefore not claimed. The observed portal rejection concerns the existing
 MCP association, not a reported OAuth-extension validation error.
 
-## Support follow-up prepared, not sent
+## Support follow-up sent on 2026-10-19
 
 Existing case **16174031** is visible in authenticated support history. Its latest text requests
 the annotations for three write tools. The composer says “Create a new case to receive support”.
 The attempted new-case action was blocked by automatic approval review because the prior conditional
-support authorization did not clearly cover creation of a new case. The following concrete message
-requires the user's approval before sending. It contains no credentials or private Nextcloud data.
+support authorization did not clearly cover creation of a new case. The user explicitly approved
+this new case on 2026-10-19. The message below was then sent through the authenticated OpenAI Help
+Center chat and was visibly present in the conversation as a user message. It contains no credentials
+or private Nextcloud data. A new case number and a specialist escalation are not yet confirmed.
+The management portal was reloaded on 2026-10-19 and still showed Not published / Changes required /
+Configuration unavailable with Rescan disabled. The new support chat remained in its response-loading
+state during verification; no duplicate message was sent.
 
 ### Technical support message
 
